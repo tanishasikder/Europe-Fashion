@@ -1,0 +1,36 @@
+handling the code. making sure its good
+
+    feature selection by seeing how much each feature contributes
+    to the the prediction like permutation importance
+
+    normalization
+
+    feature creation: making new features from existing ones
+
+    missing values by dropping or replacing with median
+
+    one hot encoding train test and label encoding test set 
+
+    binning if needed
+
+    handling outliers by the interquartile range
+
+    smote/adasyn for minority class
+
+    argument class_weight = 'balanced'
+
+    drop rare classes
+
+    pipeline
+
+    evaluate every input variable and see if its relevant/
+    something the model would know during predict 
+
+    classification report to see which classes are being ignored
+
+    compute_class_weight to help imbalance
+
+    hyperparameter tuning and grid search
+
+    cross validation on training set
+
