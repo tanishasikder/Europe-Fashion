@@ -1,0 +1,30 @@
+Tables:
+
+ProductItems (500 rows × 9 columns): Catalog of fashion items, including product type, size (e.g., 35, 36), color (Black, Blue, etc.), and cost/original prices.
+
+SalesItems (2,253 rows × 6 columns): Transactional records of product sales, tied to country, sales channel (E-commerce vs Mobile App), and demographic attributes.
+
+Pivot Table (26 rows × 7 columns): Aggregated sales metrics by product, age group, country, and time.
+
+Key Features:
+
+Digital Sales Channels: E-commerce generated the highest revenue (57K) followed by Mobile App (54K), showing strong digital market performance.
+
+Color Preferences: Black is the most purchased color (104 sales), but distribution across Blue, Red, Green, and White remains fairly even.
+
+Customer Demographics: Buyers are segmented by country (France, Germany, etc.) and age group (16–65). Notably, France’s 36–45 group had the highest customer service interaction count in 2025 (37).
+
+Temporal Trends: Sales and support interactions are broken down year-over-year, enabling trend forecasting and engagement analysis.
+
+Applications:
+This dataset supports a range of analytics and ML tasks:
+
+Predictive modeling (e.g., forecasting high-performing products, customer lifetime value)
+
+Market segmentation and targeting
+
+Sales channel performance analysis
+
+Recommender systems (based on product features and demographics)
+
+With over 2,000 sales records and a well-structured schema, the dataset is suitable for both descriptive analytics and advanced machine learning pipelines in a real-world retail context.
