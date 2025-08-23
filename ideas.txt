@@ -1,3 +1,4 @@
+
 handling the code. making sure its good
 
     feature selection by seeing how much each feature contributes
@@ -33,4 +34,6 @@ handling the code. making sure its good
     hyperparameter tuning and grid search
 
     cross validation on training set
+
+
 
