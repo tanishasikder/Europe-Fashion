@@ -86,3 +86,48 @@ pivot = pivot.rename(columns={'Unnamed: 0' : 'Row Labels', 'Unnamed: 1' : 'Dress
                       'Unnamed: 3' : 'Shoes','Unnamed: 4' : 'Sleepwear', 'Unnamed: 5' : 'T-Shirts', 
                       'Unnamed: 6' : 'Grand Total'})
 
+# Dataframe for the total cost to make the items and how much customers spent for the items
+sales_sum = sales_items.groupby('original_price').agg(
+    quantity = ('quantity', 'sum'),
+    customer_spent =('item_total', 'sum')
+).reset_index()
+
+product_sum = products.groupby(['catalog_price', 'category', 'color']).agg(
+    cost = ('cost_price', 'sum')
+).reset_index()
+
+product_compare = pd.merge(
+    sales_sum,
+    product_sum,
+    left_on='original_price',
+    right_on='catalog_price',
+    how='left'
+)
+
+product_compare['cost_to_make'] = product_compare['cost'] * product_compare['quantity']
+
+
+# Dataframe for the cost to make items by category (color and item type) and how much customers spent
+total = sales_items.merge(
+    products,
+    left_on='original_price',
+    right_on='catalog_price',
+    how='left'
+)
+
+total['cost_to_make'] = total['cost_price'] * total['quantity']
+
+total_compare = total.groupby(['category', 'color']).agg(
+    sold_quantity=('quantity', 'sum'),
+    customer_spent=('item_total', 'sum'),
+    cost_to_make=('cost_to_make', 'sum')
+).reset_index()
+
+total_compare['profit'] = total_compare['customer_spent'] - total_compare['cost_to_make']
+total_compare.sort_values(by=['profit'], ascending=False)
+
+
+
+
+
+
