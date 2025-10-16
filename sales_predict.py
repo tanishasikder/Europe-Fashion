@@ -47,9 +47,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeRegressor
-from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
@@ -58,6 +56,11 @@ from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.model_selection import KFold
 from sklearn.svm import SVR
 from sklearn.preprocessing import StandardScaler
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import PowerTransformer
+from sklearn.svm import SVR
+from sklearn.model_selection import RandomizedSearchCV
 
 # Loading in the data
 data = pd.read_excel('Fashion Data/DataPenjualanFashion.xlsx', sheet_name=None)
@@ -68,7 +71,6 @@ sales_items = data['SalesItems']
 pivot = data['Pivot Table']
 
 # Cleaning the data
-
 # Reorganizing pivot
 channel_data = {'Channels' : ['App Mobile', 'E-commerce'],
                 'Totals Of Original Price' : [53952.79, 57167.84]}
@@ -77,14 +79,19 @@ types_data = {'Type Product' : ['Dresses', 'Pants', 'Shoes', 'Sleepwear', 'T-Shi
          'Total Catalog Price' : [5298.44, 3959.36, 5236.03, 4933.21, 5511.98, 24939.02], 
          'Total Cost Price' : [2917.77, 2149.76, 2908.44, 2785.75, 2962.69, 13724.41]}
 
+# Shows the money by the channels
 channel = pd.DataFrame(channel_data)
+
+# Shows each category of clothing and their listed price and cost to make
 types = pd.DataFrame(types_data)
 
 pivot = pivot.dropna()
 pivot = pivot.drop(19)
+# Pivot now just shows the categories and color of the clothing options
 pivot = pivot.rename(columns={'Unnamed: 0' : 'Row Labels', 'Unnamed: 1' : 'Dresses', 'Unnamed: 2' : 'Pants', 
                       'Unnamed: 3' : 'Shoes','Unnamed: 4' : 'Sleepwear', 'Unnamed: 5' : 'T-Shirts', 
                       'Unnamed: 6' : 'Grand Total'})
+
 
 # Dataframe for the total cost to make the items and how much customers spent for the items
 sales_sum = sales_items.groupby('original_price').agg(
@@ -127,7 +134,53 @@ total_compare['profit'] = total_compare['customer_spent'] - total_compare['cost_
 total_compare.sort_values(by=['profit'], ascending=False)
 
 
+# Need to transform this data
+skewed_data = ['original_price', 'item_total']
 
+# Need to handle multicolinearity (from one hot encoding)
+unnatural_correlation = ['channel', 'channel_campaigns']
 
+# Need to handle multicolinearity (from natural occurences)
+natural_correlation = ['original_price', 'unit_price']
 
+# Categorical variables for encoding
+categorical = ['category', 'color']
 
+# Making a pipeline
+power_transformer = Pipeline(steps=[
+    ('power', PowerTransformer(method='yeo-johnson')),
+    ('scaler', StandardScaler())
+])
+
+scaler = StandardScaler()
+encoder = OneHotEncoder(handle_unknown='ignore')
+
+preprocess = ColumnTransformer(
+    transformers=[
+        ('skew_fix', power_transformer, skewed_data),
+        ('onehot', encoder, categorical)
+    ],
+    remainder='passthrough' # Keeps any other columns unchanged
+)
+
+# Do train test split here then create an ML pipeline
+X = product_compare.drop('profit', axis=1)
+y = product_compare['profit']
+
+X_train, y_train, X_test, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+svr_grid = {
+    'C' : [0.01, 0.1, 1, 10, 100],
+    'kernel' : ['linear', 'poly', 'rbf', 'sigmoid'],
+    'gamma' : ['scale', 'auto', 0.1, 0.01, 0.001]
+}
+
+svr = SVR()
+
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
+scores = cross_val_score(svr, X, y, cv=kf)
+
+search = RandomizedSearchCV(estimator=svr, param_distributions=svr_grid,
+                            n_iter=20, cv=kf, scoring='accuracy')
+
+search.fit(X_train, np.ravel(y_train))
