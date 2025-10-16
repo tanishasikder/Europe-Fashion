@@ -45,7 +45,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
-from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
@@ -61,6 +60,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PowerTransformer
 from sklearn.svm import SVR
 from sklearn.model_selection import RandomizedSearchCV
+from sklearn.decomposition import PCA
 
 # Loading in the data
 data = pd.read_excel('Fashion Data/DataPenjualanFashion.xlsx', sheet_name=None)
@@ -103,6 +103,7 @@ product_sum = products.groupby(['catalog_price', 'category', 'color']).agg(
     cost = ('cost_price', 'sum')
 ).reset_index()
 
+# Combines the two dataframes
 product_compare = pd.merge(
     sales_sum,
     product_sum,
@@ -111,8 +112,10 @@ product_compare = pd.merge(
     how='left'
 )
 
-product_compare['cost_to_make'] = product_compare['cost'] * product_compare['quantity']
+product_compare['profit'] = product_compare['customer_spent'] - (product_compare['cost'] * product_compare['quantity'])
 
+# Adds a column to show the product's cost to make
+product_compare['cost_to_make'] = product_compare['cost'] * product_compare['quantity']
 
 # Dataframe for the cost to make items by category (color and item type) and how much customers spent
 total = sales_items.merge(
@@ -133,7 +136,6 @@ total_compare = total.groupby(['category', 'color']).agg(
 total_compare['profit'] = total_compare['customer_spent'] - total_compare['cost_to_make']
 total_compare.sort_values(by=['profit'], ascending=False)
 
-
 # Need to transform this data
 skewed_data = ['original_price', 'item_total']
 
@@ -152,13 +154,15 @@ power_transformer = Pipeline(steps=[
     ('scaler', StandardScaler())
 ])
 
-scaler = StandardScaler()
-encoder = OneHotEncoder(handle_unknown='ignore')
+encoder = OneHotEncoder(handle_unknown='ignore', drop='first', sparse_output=False)
+pca = PCA(n_components=2)
 
+# Preprocessing that handles skewed data, encodes, and does dimensionality reduction
 preprocess = ColumnTransformer(
     transformers=[
         ('skew_fix', power_transformer, skewed_data),
         ('onehot', encoder, categorical)
+        #,('pca', pca, natural_correlation)
     ],
     remainder='passthrough' # Keeps any other columns unchanged
 )
@@ -167,20 +171,27 @@ preprocess = ColumnTransformer(
 X = product_compare.drop('profit', axis=1)
 y = product_compare['profit']
 
-X_train, y_train, X_test, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-svr_grid = {
-    'C' : [0.01, 0.1, 1, 10, 100],
-    'kernel' : ['linear', 'poly', 'rbf', 'sigmoid'],
-    'gamma' : ['scale', 'auto', 0.1, 0.01, 0.001]
-}
-
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 svr = SVR()
 
-kf = KFold(n_splits=5, shuffle=True, random_state=42)
-scores = cross_val_score(svr, X, y, cv=kf)
+# Pipeline that combines preprocessing steps and the SVR model
+pipeline = Pipeline(steps=[
+    ('preprocessing', preprocess),
+    ('model', svr)
+])
 
-search = RandomizedSearchCV(estimator=svr, param_distributions=svr_grid,
-                            n_iter=20, cv=kf, scoring='accuracy')
+svr_grid = {
+    'model__C' : [0.01, 0.1, 1, 10, 100],
+    'model__kernel' : ['linear', 'poly', 'rbf', 'sigmoid'],
+    'model__gamma' : ['scale', 'auto', 0.1, 0.01, 0.001]
+}
+
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
+scores = cross_val_score(pipeline, X, y, cv=kf)
+
+
+search = RandomizedSearchCV(estimator=pipeline, param_distributions=svr_grid,
+                           n_iter=20, cv=kf, scoring='r2', n_jobs=-1,
+                            verbose=2, random_state=42, refit=True)
 
 search.fit(X_train, np.ravel(y_train))
