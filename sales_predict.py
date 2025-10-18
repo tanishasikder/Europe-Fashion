@@ -46,19 +46,16 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.ensemble import RandomForestRegressor
-from xgboost import XGBRegressor
+from sklearn.linear_model import LinearRegression
+import lightgbm as lgb
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.model_selection import KFold
-from sklearn.svm import SVR
 from sklearn.preprocessing import StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PowerTransformer
-from sklearn.svm import SVR
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.decomposition import PCA
 
@@ -172,25 +169,34 @@ X = product_compare.drop('profit', axis=1)
 y = product_compare['profit']
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-svr = SVR()
+linear = LinearRegression()
+lgbm = lgb.LGBMRegressor()
 
-# Pipeline that combines preprocessing steps and the SVR model
-pipeline = Pipeline(steps=[
+# Pipeline that combines preprocessing steps and the linear model
+linear_pipeline = Pipeline(steps=[
     ('preprocessing', preprocess),
-    ('model', svr)
+    ('linear_model', linear)
 ])
 
-svr_grid = {
-    'model__C' : [0.01, 0.1, 1, 10, 100],
-    'model__kernel' : ['linear', 'poly', 'rbf', 'sigmoid'],
-    'model__gamma' : ['scale', 'auto', 0.1, 0.01, 0.001]
+# Baseline model to see initial performance
+linear_pipeline.fit(X_train, np.ravel(y_train))
+
+# Advanced model with hyperparameter tuning also combines preprocessing
+lgbm_pipeline = Pipeline(steps=[
+    ('preprocessing', preprocess),
+    ('lgbm_model', lgbm)
+])
+
+grid = {
+    'max_depth' : [1, 2, 3, 4],
+    'num_leaves' : [16, 31, 45],
+    'min_data_in_leaf' : [5, 10, 15, 20]
 }
 
 kf = KFold(n_splits=5, shuffle=True, random_state=42)
-scores = cross_val_score(pipeline, X, y, cv=kf)
+scores = cross_val_score(lgbm_pipeline, X, y, cv=kf)
 
-
-search = RandomizedSearchCV(estimator=pipeline, param_distributions=svr_grid,
+search = RandomizedSearchCV(estimator=lgbm_pipeline, param_distributions=grid, 
                            n_iter=20, cv=kf, scoring='r2', n_jobs=-1,
                             verbose=2, random_state=42, refit=True)
 
