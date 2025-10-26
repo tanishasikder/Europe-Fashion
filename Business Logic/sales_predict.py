@@ -203,6 +203,3 @@ search = RandomizedSearchCV(estimator=lgbm_pipeline, param_distributions=grid,
 search.fit(X_train, np.ravel(y_train))
 
 
-#https://chatgpt.com/c/68f2d597-d8cc-8332-83a0-33b91e20d553
-#https://chatgpt.com/c/68f1505c-21d0-8331-8f98-fd05007cb3f6
-#https://chatgpt.com/c/68f2a0a3-3a7c-832b-babb-839d05a7c568
