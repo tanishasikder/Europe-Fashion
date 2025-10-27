@@ -93,7 +93,8 @@ pivot = pivot.rename(columns={'Unnamed: 0' : 'Row Labels', 'Unnamed: 1' : 'Dress
 # Dataframe for the total cost to make the items and how much customers spent for the items
 sales_sum = sales_items.groupby('original_price').agg(
     quantity = ('quantity', 'sum'),
-    customer_spent =('item_total', 'sum')
+    # Was customer_spent
+    item_total =('item_total', 'sum')
 ).reset_index()
 
 product_sum = products.groupby(['catalog_price', 'category', 'color']).agg(
@@ -109,6 +110,7 @@ product_compare = pd.merge(
     how='left'
 )
 
+product_compare['customer_spent'] = product_compare['item_total']
 product_compare['profit'] = product_compare['customer_spent'] - (product_compare['cost'] * product_compare['quantity'])
 
 # Adds a column to show the product's cost to make
@@ -124,6 +126,7 @@ total = sales_items.merge(
 
 total['cost_to_make'] = total['cost_price'] * total['quantity']
 
+# GENERATE SIGNIFICANT DATA IF NEEDED
 total_compare = total.groupby(['category', 'color']).agg(
     sold_quantity=('quantity', 'sum'),
     customer_spent=('item_total', 'sum'),
@@ -169,6 +172,7 @@ X = product_compare.drop('profit', axis=1)
 y = product_compare['profit']
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
 linear = LinearRegression()
 lgbm = lgb.LGBMRegressor()
 
@@ -188,11 +192,13 @@ lgbm_pipeline = Pipeline(steps=[
 ])
 
 grid = {
-    'max_depth' : [1, 2, 3, 4],
-    'num_leaves' : [16, 31, 45],
-    'min_data_in_leaf' : [5, 10, 15, 20]
+    'lgbm__max_depth' : [1, 2, 3, 4],
+    'lgbm__num_leaves' : [3, 5, 7],
+    'lgbm__min_data_in_leaf' : [2, 4, 6, 8],
+    'lgbm__n_estimators' : [100, 200]
 }
 
+early_stopping = lgb.early_stopping(stopping_rounds=50)
 kf = KFold(n_splits=5, shuffle=True, random_state=42)
 scores = cross_val_score(lgbm_pipeline, X, y, cv=kf)
 
@@ -200,6 +206,4 @@ search = RandomizedSearchCV(estimator=lgbm_pipeline, param_distributions=grid,
                            n_iter=20, cv=kf, scoring='r2', n_jobs=-1,
                             verbose=2, random_state=42, refit=True)
 
-search.fit(X_train, np.ravel(y_train))
-
-
+search.fit(X_train, np.ravel(y_train), callbacks=[early_stopping])
