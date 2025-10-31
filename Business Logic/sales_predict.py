@@ -192,13 +192,16 @@ lgbm_pipeline = Pipeline(steps=[
 ])
 
 grid = {
-    'lgbm__max_depth' : [1, 2, 3, 4],
-    'lgbm__num_leaves' : [3, 5, 7],
-    'lgbm__min_data_in_leaf' : [2, 4, 6, 8],
-    'lgbm__n_estimators' : [100, 200]
+    'lgbm_model__max_depth' : [1, 2, 3, 4],
+    'lgbm_model__num_leaves' : [3, 5, 7],
+    'lgbm_model__min_data_in_leaf' : [2, 4, 6, 8],
+    'lgbm_model__n_estimators' : [100, 200]
 }
 
-early_stopping = lgb.early_stopping(stopping_rounds=50)
+lgbm.fit(X_train, np.ravel(y_train))
+
+'''
+#early_stopping = lgb.early_stopping(stopping_rounds=50)
 kf = KFold(n_splits=5, shuffle=True, random_state=42)
 scores = cross_val_score(lgbm_pipeline, X, y, cv=kf)
 
@@ -206,4 +209,6 @@ search = RandomizedSearchCV(estimator=lgbm_pipeline, param_distributions=grid,
                            n_iter=20, cv=kf, scoring='r2', n_jobs=-1,
                             verbose=2, random_state=42, refit=True)
 
-search.fit(X_train, np.ravel(y_train), callbacks=[early_stopping])
+#search.fit(X_train, np.ravel(y_train), lgbm_model__callbacks=[early_stopping])
+search.fit(X_train, np.ravel(y_train))
+'''

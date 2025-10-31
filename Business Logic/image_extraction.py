@@ -35,8 +35,8 @@ data_transforms = {
     ])
 }
 
-data_dir = 'Europe-Fashion/Fashion_images'
-sets = ['color_train', 'type_train', 'color_val', 'type_val']
+data_dir = r'C:\Users\Tanis\Downloads\Europe-Fashion\Fashion_Images'
+sets = ['train', 'val']
 
 # Getting the data based on the train/val sets then doing transformations
 image_datasets = {x : datasets.ImageFolder(os.path.join(data_dir, x),
@@ -45,19 +45,27 @@ image_datasets = {x : datasets.ImageFolder(os.path.join(data_dir, x),
 
 # Loading the data in batches. Separate dataloaders for color and type tests
 data_loaders = {
-    'color_train' : DataLoader(image_datasets['color_train'], batch_size=32, 
+    'train' : DataLoader(image_datasets['train'], batch_size=32, 
                                shuffle=True, num_workers=4, pin_memory=True),
-    'type_train' : DataLoader(image_datasets['type_train'], batch_size=32, 
-                              shuffle=True, num_workers=4, pin_memory=True),
-    'color_val' : DataLoader(image_datasets['color_val'], batch_size=32, 
-                             shuffle=False, num_workers=4, pin_memory=True),                          
-    'type_val' : DataLoader(image_datasets['type_val'], batch_size=32, 
-                            shuffle=False, num_workers=4, pin_memory=True)
+    'val' : DataLoader(image_datasets['val'], batch_size=32, 
+                             shuffle=False, num_workers=4, pin_memory=True)                       
 }
 
+for input, label in data_loaders['train']:
+    print(f"input:{input}")
+    print(f"label:{label}")
+
 dataset_sizes = {x : len(image_datasets[x]) for x in sets}
-color_names = image_datasets['color_train'].classes
-type_names = image_datasets['type_train'].classes
+color_names = image_datasets['train'].classes
+type_names = image_datasets['train'].classes
+
+for color in color_names:
+    dash = color.index('_')
+    color = color[0:dash]
+
+for type in type_names:
+    dash = type.index('_')
+    type = type[dash:]
 
 # CNN class to classify image features
 class CNN(nn.Module):
@@ -104,7 +112,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
         print(f'Epoch {epoch}/{num_epochs - 1}')
         # Switch between training and validation
         for phase in sets:
-            if phase == 'color_train' or 'type_train':
+            if phase == 'train':
                 model.train()
             else:
                 model.eval()
@@ -113,26 +121,26 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
         correct = 0
 
         # Loop over the labels and the images in the dataloader
-        # Changes between train/val/color/type
         for input, label in data_loaders[phase]:
             inputs = input.to(device)
             labels = label.to(device)
 
             with torch.set_grad_enabled(phase=='train'):
                 # Gets the outputs from resnet model
-                output = None
                 color, type = model(inputs)
-                track = phase.replace('_train', '')
-                if track == 'color': 
-                    output = color 
-                else: 
-                    output = type
+
                 # Gets the largest score then calculates loss
-                _, preds = torch.max(output, 1)
-                loss = criterion(output, labels)
+                _, color_pred = torch.max(color, 1)
+                color_loss = criterion(color_pred, labels)
+                
+                _, type_pred = torch.max(type, 1)
+                type_loss = criterion(type_pred, labels)
+
+                # Overall loss from both predictions
+                loss = type_loss + color_loss
 
                 # Optimizes and backward propagates if it is training
-                if phase in ['color_train','type_train']:
+                if phase == 'train':
                     optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
@@ -141,7 +149,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
             run_loss += loss.item() * inputs.size(0)
             correct += torch.sum(preds == labels.data)
 
-        if phase in ['color_train', 'type_train']:
+        if phase == 'train':
             scheduler.step()
         
         # Overall loss and accuracy of this model
@@ -151,7 +159,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
         print(f'{phase} Loss : {epoch_loss:.3f} Accuracy : {epoch_accuracy:.3f}')
 
         # If it is validation, find the best model by finding the best accuracy
-        if phase in ['color_val', 'type_val'] and epoch_accuracy > best_accuracy:
+        if phase == 'val' and epoch_accuracy > best_accuracy:
             best_accuracy = epoch_accuracy
             best_model = copy.deepcopy(model.state_dict())
 
