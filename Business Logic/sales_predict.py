@@ -43,12 +43,13 @@ items showed almost no increase.”
 '''
 import numpy as np
 import pandas as pd
+import seaborn as sns
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.linear_model import LogisticRegression
 from sklearn.linear_model import LinearRegression
 import lightgbm as lgb
-from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.model_selection import KFold
@@ -58,6 +59,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PowerTransformer
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.decomposition import PCA
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 
 # Loading in the data
 data = pd.read_excel('Fashion Data/DataPenjualanFashion.xlsx', sheet_name=None)
@@ -111,10 +114,11 @@ product_compare = pd.merge(
 )
 
 product_compare['customer_spent'] = product_compare['item_total']
-product_compare['profit'] = product_compare['customer_spent'] - (product_compare['cost'] * product_compare['quantity'])
-
 # Adds a column to show the product's cost to make
 product_compare['cost_to_make'] = product_compare['cost'] * product_compare['quantity']
+
+# Adds a column to show profit
+product_compare['profit'] = product_compare['customer_spent'] - product_compare['cost_to_make']
 
 # Dataframe for the cost to make items by category (color and item type) and how much customers spent
 total = sales_items.merge(
@@ -148,6 +152,7 @@ natural_correlation = ['original_price', 'unit_price']
 # Categorical variables for encoding
 categorical = ['category', 'color']
 
+
 # Making a pipeline
 power_transformer = Pipeline(steps=[
     ('power', PowerTransformer(method='yeo-johnson')),
@@ -168,10 +173,21 @@ preprocess = ColumnTransformer(
 )
 
 # Do train test split here then create an ML pipeline
-X = product_compare.drop('profit', axis=1)
+X = product_compare.drop(['profit', 'customer_spent', 'cost_to_make'], axis=1)
 y = product_compare['profit']
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+negative_indices = y_train[y_train < 0].index.tolist()
+
+print(negative_indices)
+# These indices have negative values
+y_train = y_train.drop([291, 263], axis=0)
+X_train = X_train.drop([291, 263], axis=0)
+
+# Reset indices for alignment
+X_train = X_train.reset_index(drop=True)
+y_train = y_train.reset_index(drop=True)
 
 linear = LinearRegression()
 lgbm = lgb.LGBMRegressor()
@@ -182,15 +198,42 @@ linear_pipeline = Pipeline(steps=[
     ('linear_model', linear)
 ])
 
+# Test if there are 'continuous' errors
+'''
+print("y_test dtype:", getattr(y_train, "dtype", type(y_train)))
+print("y_test sample:", np.array(y_test[:10]))
+print("X_test dtype:", getattr(X_train, "dtype", type(X_train)))
+print("X_test sample:", np.array(X_test[:10]))
+'''
 # Baseline model to see initial performance
 linear_pipeline.fit(X_train, np.ravel(y_train))
 
+# Predicting on X_train sees if model is overfitting
+train_pred = linear_pipeline.predict(X_train)
+test_pred = linear_pipeline.predict(X_test)
+
+
+# The plot is too perfect. Could be data leakage
+plt.figure(figsize=(6,6))
+plt.scatter(y_train, train_pred, color='blue', label='Train')
+plt.scatter(y_test, test_pred, color='red', label='Test')
+plt.plot([min(y_test), max(y_test)], [min(y_test), max(y_test)], 'k--', lw=2)
+plt.xlabel('Actual Values')
+plt.ylabel('Predicted Values')
+plt.title('Predicted vs Actual')
+plt.legend()
+plt.show()
+
+# mean squared error is very low. could be overfitting
+print('Mean Squared Error:', mean_squared_error(y_test, test_pred))
+'''
 # Advanced model with hyperparameter tuning also combines preprocessing
 lgbm_pipeline = Pipeline(steps=[
     ('preprocessing', preprocess),
     ('lgbm_model', lgbm)
 ])
 
+# Parameters still are not helping the model
 grid = {
     'lgbm_model__max_depth' : [1, 2, 3, 4],
     'lgbm_model__num_leaves' : [3, 5, 7],
@@ -198,9 +241,14 @@ grid = {
     'lgbm_model__n_estimators' : [100, 200]
 }
 
-lgbm.fit(X_train, np.ravel(y_train))
+lgbm_pipeline.fit(X_train, np.ravel(y_train))
 
-'''
+lgbm_pred = lgbm_pipeline.predict(X_test)
+#lgbm_pred = np.argmax(lgbm_pred, axis=1)
+print(lgbm_pred)
+print('Mean Squared Error:', mean_squared_error(y_test, lgbm_pred))
+
+
 #early_stopping = lgb.early_stopping(stopping_rounds=50)
 kf = KFold(n_splits=5, shuffle=True, random_state=42)
 scores = cross_val_score(lgbm_pipeline, X, y, cv=kf)
@@ -211,4 +259,5 @@ search = RandomizedSearchCV(estimator=lgbm_pipeline, param_distributions=grid,
 
 #search.fit(X_train, np.ravel(y_train), lgbm_model__callbacks=[early_stopping])
 search.fit(X_train, np.ravel(y_train))
+
 '''
