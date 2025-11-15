@@ -59,6 +59,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PowerTransformer
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.decomposition import PCA
+from sklearn.metrics import r2_score
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 
@@ -92,7 +93,6 @@ pivot = pivot.rename(columns={'Unnamed: 0' : 'Row Labels', 'Unnamed: 1' : 'Dress
                       'Unnamed: 3' : 'Shoes','Unnamed: 4' : 'Sleepwear', 'Unnamed: 5' : 'T-Shirts', 
                       'Unnamed: 6' : 'Grand Total'})
 
-
 # Dataframe for the total cost to make the items and how much customers spent for the items
 sales_sum = sales_items.groupby('original_price').agg(
     quantity = ('quantity', 'sum'),
@@ -100,48 +100,45 @@ sales_sum = sales_items.groupby('original_price').agg(
     item_total =('item_total', 'sum')
 ).reset_index()
 
-product_sum = products.groupby(['catalog_price', 'category', 'color']).agg(
-    cost = ('cost_price', 'sum')
-).reset_index()
+cost = products['cost_price']
 
 # Combines the two dataframes
 product_compare = pd.merge(
     sales_sum,
-    product_sum,
-    left_on='original_price',
-    right_on='catalog_price',
-    how='left'
+    cost,
+    left_index=True,
+    right_index=True
 )
 
-product_compare['customer_spent'] = product_compare['item_total']
+#product_compare['customer_spent'] = product_compare['item_total']
 # Adds a column to show the product's cost to make
-product_compare['cost_to_make'] = product_compare['cost'] * product_compare['quantity']
+product_compare['cost_to_make'] = product_compare['cost_price'] * product_compare['quantity']
 
 # Adds a column to show profit
-product_compare['profit'] = product_compare['customer_spent'] - product_compare['cost_to_make']
+product_compare['profit'] = product_compare['item_total'] - product_compare['cost_to_make']
 
 # Dataframe for the cost to make items by category (color and item type) and how much customers spent
 total = sales_items.merge(
     products,
-    left_on='original_price',
-    right_on='catalog_price',
-    how='left'
+    left_index=True,
+    right_index=True
 )
 
 total['cost_to_make'] = total['cost_price'] * total['quantity']
 
 # GENERATE SIGNIFICANT DATA IF NEEDED
+# FIX THIS ALL LATER THERES DATA LEAKAGE CUZ YOURE GROUPING WITH CATEGORY AND COLOUR
 total_compare = total.groupby(['category', 'color']).agg(
     sold_quantity=('quantity', 'sum'),
-    customer_spent=('item_total', 'sum'),
+    item_total=('item_total', 'sum'),
     cost_to_make=('cost_to_make', 'sum')
 ).reset_index()
 
-total_compare['profit'] = total_compare['customer_spent'] - total_compare['cost_to_make']
+total_compare['profit'] = total_compare['item_total'] - total_compare['cost_to_make']
 total_compare.sort_values(by=['profit'], ascending=False)
 
 # Need to transform this data
-skewed_data = ['original_price', 'item_total']
+skewed_data = ['original_price']
 
 # Need to handle multicolinearity (from one hot encoding)
 unnatural_correlation = ['channel', 'channel_campaigns']
@@ -151,7 +148,6 @@ natural_correlation = ['original_price', 'unit_price']
 
 # Categorical variables for encoding
 categorical = ['category', 'color']
-
 
 # Making a pipeline
 power_transformer = Pipeline(steps=[
@@ -173,14 +169,17 @@ preprocess = ColumnTransformer(
 )
 
 # Do train test split here then create an ML pipeline
-X = product_compare.drop(['profit', 'customer_spent', 'cost_to_make'], axis=1)
+
+print(products)
+
+X = products.drop(['catalog_price', 'cost_price', 'gender', 'product_id'], axis=1)
 y = product_compare['profit']
+
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 negative_indices = y_train[y_train < 0].index.tolist()
 
-print(negative_indices)
 # These indices have negative values
 y_train = y_train.drop([291, 263], axis=0)
 X_train = X_train.drop([291, 263], axis=0)
@@ -225,8 +224,9 @@ plt.legend()
 plt.show()
 
 # mean squared error is very low. could be overfitting
-print('Mean Squared Error:', mean_squared_error(y_test, test_pred))
-'''
+print('Mean Squared Error: ', mean_squared_error(y_test, test_pred))
+print('R^2: ', r2_score(y_test, test_pred))
+
 # Advanced model with hyperparameter tuning also combines preprocessing
 lgbm_pipeline = Pipeline(steps=[
     ('preprocessing', preprocess),
@@ -236,9 +236,9 @@ lgbm_pipeline = Pipeline(steps=[
 # Parameters still are not helping the model
 grid = {
     'lgbm_model__max_depth' : [1, 2, 3, 4],
-    'lgbm_model__num_leaves' : [3, 5, 7],
-    'lgbm_model__min_data_in_leaf' : [2, 4, 6, 8],
-    'lgbm_model__n_estimators' : [100, 200]
+    'lgbm_model__num_leaves' : [2, 4, 5],
+    'lgbm_model__min_data_in_leaf' : [2, 3, 4, 5],
+    'lgbm_model__n_estimators' : [50, 100]
 }
 
 lgbm_pipeline.fit(X_train, np.ravel(y_train))
@@ -247,7 +247,6 @@ lgbm_pred = lgbm_pipeline.predict(X_test)
 #lgbm_pred = np.argmax(lgbm_pred, axis=1)
 print(lgbm_pred)
 print('Mean Squared Error:', mean_squared_error(y_test, lgbm_pred))
-
 
 #early_stopping = lgb.early_stopping(stopping_rounds=50)
 kf = KFold(n_splits=5, shuffle=True, random_state=42)
@@ -260,4 +259,11 @@ search = RandomizedSearchCV(estimator=lgbm_pipeline, param_distributions=grid,
 #search.fit(X_train, np.ravel(y_train), lgbm_model__callbacks=[early_stopping])
 search.fit(X_train, np.ravel(y_train))
 
-'''
+
+#https://chatgpt.com/c/68f1505c-21d0-8331-8f98-fd05007cb3f6
+#https://chatgpt.com/c/68f2a0a3-3a7c-832b-babb-839d05a7c568
+#https://lightgbm.readthedocs.io/en/latest/Parameters-Tuning.html
+
+#https://gemini.google.com/u/2/app/62dab08f8df5ad32?pageId=none
+#https://www.google.com/search?q=why+is+my+ml+model+with+randomizedsearchcv+not+improving+with+a+parameter+grid&sca_esv=c2292d1d59604bd8&sxsrf=AE3TifN5jDc39h-Bwpr3gAhfGlGCRTYj8A%3A1761867985855&ei=0fgDae74M8-r5NoPqIrsmQ0&ved=0ahUKEwiupcDbjc2QAxXPFVkFHSgFO9MQ4dUDCBM&uact=5&oq=why+is+my+ml+model+with+randomizedsearchcv+not+improving+with+a+parameter+grid&gs_lp=Egxnd3Mtd2l6LXNlcnAiTndoeSBpcyBteSBtbCBtb2RlbCB3aXRoIHJhbmRvbWl6ZWRzZWFyY2hjdiBub3QgaW1wcm92aW5nIHdpdGggYSBwYXJhbWV0ZXIgZ3JpZEjNoAFQjAhYh54BcA14AZABAJgBqwGgAaZBqgEFMzIuNDe4AQPIAQD4AQGYAk2gAoU-qAIQwgIHECMYJxjqAsICChAjGPAFGCcY6gLCAhQQABiABBiRAhi0AhiKBRjqAtgBAcICBBAjGCfCAgoQIxiABBgnGIoFwgIKEAAYgAQYQxiKBcICCxAAGIAEGLEDGIMBwgILEC4YgAQYsQMYgwHCAhEQLhiABBixAxjRAxiDARjHAcICDhAAGIAEGLEDGIMBGIoFwgIOEC4YgAQYsQMY0QMYxwHCAggQLhiABBixA8ICBRAAGIAEwgIIEAAYgAQYsQPCAgQQABgDwgIQECMY8AUYgAQYJxjJAhiKBcICCxAAGIAEGJECGIoFwgIHEAAYgAQYCsICCxAAGIAEGIYDGIoFwgIFEAAY7wXCAgYQABgWGB7CAggQABiiBBiJBcICBRAhGKABwgIFECEYnwXCAgUQIRirAsICCBAAGIAEGKIEwgIHECEYoAEYCpgDCPEFozIDnJYftea6BgYIARABGAGSBwUyMy41NKAH76IDsgcFMTQuNTS4B8M9wgcJMC4yNy40OS4xyAeoAg&sclient=gws-wiz-serp
+#https://gemini.google.com/app/15b3248b3644369f
