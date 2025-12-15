@@ -110,12 +110,16 @@ product_compare = pd.merge(
     right_index=True
 )
 
+
 #product_compare['customer_spent'] = product_compare['item_total']
 # Adds a column to show the product's cost to make
 product_compare['cost_to_make'] = product_compare['cost_price'] * product_compare['quantity']
 
 # Adds a column to show profit
 product_compare['profit'] = product_compare['item_total'] - product_compare['cost_to_make']
+
+print(product_compare)
+
 
 # Dataframe for the cost to make items by category (color and item type) and how much customers spent
 total = sales_items.merge(
@@ -128,6 +132,8 @@ total['cost_to_make'] = total['cost_price'] * total['quantity']
 
 # GENERATE SIGNIFICANT DATA IF NEEDED
 # FIX THIS ALL LATER THERES DATA LEAKAGE CUZ YOURE GROUPING WITH CATEGORY AND COLOUR
+# this dataframe is for the categories to be as one. the last one has individual points
+# this one has everything aggregated to see how the overall category does
 total_compare = total.groupby(['category', 'color']).agg(
     sold_quantity=('quantity', 'sum'),
     item_total=('item_total', 'sum'),
@@ -137,8 +143,13 @@ total_compare = total.groupby(['category', 'color']).agg(
 total_compare['profit'] = total_compare['item_total'] - total_compare['cost_to_make']
 total_compare.sort_values(by=['profit'], ascending=False)
 
+print("_________________________________________________________________")
+print(products)
+print(product_compare)
+
 # Need to transform this data
-skewed_data = ['original_price']
+skewed_data = []   #ORIGINAL PRICE ISNT IN ANY OF THE DATAFRAMES WHY ARE YOU TRANSFORMING THIS
+#skewed_data = ['original_price']
 
 # Need to handle multicolinearity (from one hot encoding)
 unnatural_correlation = ['channel', 'channel_campaigns']
@@ -147,13 +158,14 @@ unnatural_correlation = ['channel', 'channel_campaigns']
 natural_correlation = ['original_price', 'unit_price']
 
 # Categorical variables for encoding
-categorical = ['category', 'color']
+categorical = ['category', 'color', 'size']
 
 # Making a pipeline
 power_transformer = Pipeline(steps=[
     ('power', PowerTransformer(method='yeo-johnson')),
     ('scaler', StandardScaler())
 ])
+
 
 encoder = OneHotEncoder(handle_unknown='ignore', drop='first', sparse_output=False)
 pca = PCA(n_components=2)
@@ -168,13 +180,13 @@ preprocess = ColumnTransformer(
     remainder='passthrough' # Keeps any other columns unchanged
 )
 
+# We are using the catalog price now to help predict along with size
 # Do train test split here then create an ML pipeline
-
-print(products)
-
-X = products.drop(['catalog_price', 'cost_price', 'gender', 'product_id'], axis=1)
+X = products.drop(['cost_price', 'gender', 'product_id', 'brand', 'product_name'], axis=1)
 y = product_compare['profit']
 
+# Drop rows in X to make X and y have the same number of samples
+X = X.reindex(y.index)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
@@ -188,6 +200,9 @@ X_train = X_train.drop([291, 263], axis=0)
 X_train = X_train.reset_index(drop=True)
 y_train = y_train.reset_index(drop=True)
 
+# Log transformation (check to see if it works)
+#y_train = np.log(y_train)
+
 linear = LinearRegression()
 lgbm = lgb.LGBMRegressor()
 
@@ -198,12 +213,12 @@ linear_pipeline = Pipeline(steps=[
 ])
 
 # Test if there are 'continuous' errors
-'''
+
 print("y_test dtype:", getattr(y_train, "dtype", type(y_train)))
 print("y_test sample:", np.array(y_test[:10]))
 print("X_test dtype:", getattr(X_train, "dtype", type(X_train)))
 print("X_test sample:", np.array(X_test[:10]))
-'''
+
 # Baseline model to see initial performance
 linear_pipeline.fit(X_train, np.ravel(y_train))
 
@@ -223,9 +238,12 @@ plt.title('Predicted vs Actual')
 plt.legend()
 plt.show()
 
+# Transform it back to original units since it was transformed
+original_y_test = np.exp(test_pred)
+
 # mean squared error is very low. could be overfitting
-print('Mean Squared Error: ', mean_squared_error(y_test, test_pred))
-print('R^2: ', r2_score(y_test, test_pred))
+print('Mean Squared Error: ', mean_squared_error(y_test, original_y_test))
+print('R^2: ', r2_score(y_test, original_y_test))
 
 # Advanced model with hyperparameter tuning also combines preprocessing
 lgbm_pipeline = Pipeline(steps=[

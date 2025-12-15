@@ -4,7 +4,7 @@ import copy
 import torch.nn as nn
 import torchvision.models as models
 import torchvision.transforms as transforms
-from torchvision import datasets
+from torchvision import datasets, transforms
 import torch.optim as optim
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
@@ -38,9 +38,39 @@ data_transforms = {
 data_dir = r'C:\Users\Tanis\Downloads\Europe-Fashion\Fashion_Images'
 sets = ['train', 'val']
 
+
+
+# TESTING
+for set_name in ['train', 'val']:
+    set_path = os.path.join(data_dir, set_name)
+    print(f"\n{'='*50}")
+    print(f"Checking: {set_path}")
+    print(f"Exists: {os.path.exists(set_path)}")
+    
+    if os.path.exists(set_path):
+        class_folders = os.listdir(set_path)
+        print(f"Found {len(class_folders)} class folders")
+        
+        for class_folder in class_folders[:3]:  # Check first 3 folders
+            class_path = os.path.join(set_path, class_folder)
+            if os.path.isdir(class_path):
+                files = os.listdir(class_path)
+                print(f"\n  {class_folder}/")
+                print(f"    Total items: {len(files)}")
+                
+                # Show first 5 files
+                for file in files[:5]:
+                    file_path = os.path.join(class_path, file)
+                    print(f"    - {file} (is_file: {os.path.isfile(file_path)})")
+
+
+
+
+
 # Getting the data based on the train/val sets then doing transformations
 image_datasets = {x : datasets.ImageFolder(os.path.join(data_dir, x),
-                                           data_transforms[x])
+                                           data_transforms[x],
+                                           is_valid_file = lambda path: path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')))
                                            for x in sets}
 
 # Loading the data in batches. Separate dataloaders for color and type tests
@@ -61,16 +91,35 @@ type_names = image_datasets['train'].classes
 
 for color in color_names:
     dash = color.index('_')
-    color = color[0:dash]
+    color_index = color_names.index(color)
+    replace_color = color[0:dash]
+    color_names[color_index] = replace_color
 
 for type in type_names:
     dash = type.index('_')
-    type = type[dash:]
+    type_index = type_names.index(type)
+    replace_type = type[dash:]
+    type_names[type_index] = replace_type
+
+
+
+
+# TESTING
+print(f"Looking for images in: {data_dir}")
+for set_name in sets:
+    path = os.path.join(data_dir, set_name)
+    print(f"\n{set_name} path: {path}")
+    print(f"Exists: {os.path.exists(path)}")
+    if os.path.exists(path):
+        print(f"Contents: {os.listdir(path)}")
+
+
+
 
 # CNN class to classify image features
 class CNN(nn.Module):
     def __init__(self, color_names, type_names, device):
-        super().__init()
+        super().__init__()
         # Load in the pretrained resnet model
         model = models.resnet18(pretrained=True)
         self.resnet = model
@@ -89,7 +138,7 @@ class CNN(nn.Module):
     
     def forward(self, x):
         # Gather features and assign it to the color and type heads
-        features = self.resnet.features(x)
+        features = self.resnet(x)
         color = self.fc_color(features)
         type = self.fc_type(features)
         # Return the classification
@@ -106,6 +155,7 @@ step_lr = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
     best_model = copy.deepcopy(model.state_dict())
     best_accuracy = 0.0
+    run_loss = 0.0
     best_model = None
 
     for epoch in range(num_epochs):
@@ -131,13 +181,14 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
 
                 # Gets the largest score then calculates loss
                 _, color_pred = torch.max(color, 1)
-                color_loss = criterion(color_pred, labels)
+                color_loss = criterion(color, labels)
                 
                 _, type_pred = torch.max(type, 1)
-                type_loss = criterion(type_pred, labels)
+                type_loss = criterion(type, labels)
 
                 # Overall loss from both predictions
                 loss = type_loss + color_loss
+                preds = color_pred + type_pred
 
                 # Optimizes and backward propagates if it is training
                 if phase == 'train':
