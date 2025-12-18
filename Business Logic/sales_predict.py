@@ -59,6 +59,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PowerTransformer
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.decomposition import PCA
+
 from sklearn.metrics import r2_score
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
@@ -94,22 +95,11 @@ pivot = pivot.rename(columns={'Unnamed: 0' : 'Row Labels', 'Unnamed: 1' : 'Dress
                       'Unnamed: 6' : 'Grand Total'})
 
 # Dataframe for the total cost to make the items and how much customers spent for the items
-sales_sum = sales_items.groupby('original_price').agg(
-    quantity = ('quantity', 'sum'),
-    # Was customer_spent
-    item_total =('item_total', 'sum')
-).reset_index()
-
-cost = products['cost_price']
-
-# Combines the two dataframes
-product_compare = pd.merge(
-    sales_sum,
-    cost,
+product_compare = sales_items.merge(
+    products,
     left_index=True,
     right_index=True
 )
-
 
 #product_compare['customer_spent'] = product_compare['item_total']
 # Adds a column to show the product's cost to make
@@ -118,9 +108,14 @@ product_compare['cost_to_make'] = product_compare['cost_price'] * product_compar
 # Adds a column to show profit
 product_compare['profit'] = product_compare['item_total'] - product_compare['cost_to_make']
 
-print(product_compare)
+#Adds a column to show profit margin
+product_compare['profit_margin'] = (product_compare['unit_price'] - product_compare['cost_price']) / product_compare['unit_price']
 
 
+
+
+
+#USED LATER LEAVE FOR NOW
 # Dataframe for the cost to make items by category (color and item type) and how much customers spent
 total = sales_items.merge(
     products,
@@ -143,9 +138,9 @@ total_compare = total.groupby(['category', 'color']).agg(
 total_compare['profit'] = total_compare['item_total'] - total_compare['cost_to_make']
 total_compare.sort_values(by=['profit'], ascending=False)
 
-print("_________________________________________________________________")
-print(products)
-print(product_compare)
+
+
+
 
 # Need to transform this data
 skewed_data = []   #ORIGINAL PRICE ISNT IN ANY OF THE DATAFRAMES WHY ARE YOU TRANSFORMING THIS
@@ -182,17 +177,18 @@ preprocess = ColumnTransformer(
 
 # We are using the catalog price now to help predict along with size
 # Do train test split here then create an ML pipeline
-X = products.drop(['cost_price', 'gender', 'product_id', 'brand', 'product_name'], axis=1)
-y = product_compare['profit']
+X = product_compare[['category', 'color', 'size', 'catalog_price']]
+#y = product_compare['profit']
+y = product_compare['profit_margin']
 
 # Drop rows in X to make X and y have the same number of samples
-X = X.reindex(y.index)
+#X = X.reindex(y.index)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 negative_indices = y_train[y_train < 0].index.tolist()
 
-# These indices have negative values
+# These indices skew the data negatively
 y_train = y_train.drop([291, 263], axis=0)
 X_train = X_train.drop([291, 263], axis=0)
 
@@ -204,7 +200,16 @@ y_train = y_train.reset_index(drop=True)
 #y_train = np.log(y_train)
 
 linear = LinearRegression()
-lgbm = lgb.LGBMRegressor()
+lgbm = lgb.LGBMRegressor(
+    n_estimators=100,      
+    learning_rate=0.05,    
+    max_depth=3,           
+    num_leaves=15,         
+    min_child_samples=5,   
+    subsample=0.8,
+    colsample_bytree=0.8,
+    random_state=42
+)
 
 # Pipeline that combines preprocessing steps and the linear model
 linear_pipeline = Pipeline(steps=[
@@ -213,7 +218,6 @@ linear_pipeline = Pipeline(steps=[
 ])
 
 # Test if there are 'continuous' errors
-
 print("y_test dtype:", getattr(y_train, "dtype", type(y_train)))
 print("y_test sample:", np.array(y_test[:10]))
 print("X_test dtype:", getattr(X_train, "dtype", type(X_train)))
@@ -227,7 +231,7 @@ train_pred = linear_pipeline.predict(X_train)
 test_pred = linear_pipeline.predict(X_test)
 
 
-# The plot is too perfect. Could be data leakage
+# The plot shows negative values and is not linear
 plt.figure(figsize=(6,6))
 plt.scatter(y_train, train_pred, color='blue', label='Train')
 plt.scatter(y_test, test_pred, color='red', label='Test')
@@ -238,12 +242,13 @@ plt.title('Predicted vs Actual')
 plt.legend()
 plt.show()
 
-# Transform it back to original units since it was transformed
+# If you find anything that needs to be tranformed in the future use this
+# And then calculate the metrics with it
 original_y_test = np.exp(test_pred)
 
-# mean squared error is very low. could be overfitting
-print('Mean Squared Error: ', mean_squared_error(y_test, original_y_test))
-print('R^2: ', r2_score(y_test, original_y_test))
+# mean squared error is high
+print('Mean Squared Error: ', mean_squared_error(y_test, test_pred))
+print('R^2: ', r2_score(y_test, test_pred))
 
 # Advanced model with hyperparameter tuning also combines preprocessing
 lgbm_pipeline = Pipeline(steps=[
@@ -253,10 +258,16 @@ lgbm_pipeline = Pipeline(steps=[
 
 # Parameters still are not helping the model
 grid = {
-    'lgbm_model__max_depth' : [1, 2, 3, 4],
-    'lgbm_model__num_leaves' : [2, 4, 5],
-    'lgbm_model__min_data_in_leaf' : [2, 3, 4, 5],
-    'lgbm_model__n_estimators' : [50, 100]
+    'lgbm_model__n_estimators': [50, 100, 200],  # Not too many trees
+    'lgbm_model__max_depth': [3, 4, 5],  # SHALLOW trees (prevents overfitting)
+    'lgbm_model__num_leaves': [7, 15, 31],  # Fewer leaves = less complex
+    'lgbm_model__learning_rate': [0.01, 0.05, 0.1],  # Lower = more regularization
+    'lgbm_model__min_child_samples': [10, 20, 30],  # High = more regularization
+    'lgbm_model__subsample': [0.6, 0.8, 1.0],  # Use less data per tree
+    'lgbm_model__colsample_bytree': [0.6, 0.8, 1.0],  # Use fewer features per tree
+    'lgbm_model__reg_alpha': [0, 0.1, 1.0],  # L1 regularization
+    'lgbm_model__reg_lambda': [0, 0.1, 1.0],  # L2 regularization
+    'lgbm_model__min_split_gain': [0.0, 0.1, 0.5],  # Minimum gain to split
 }
 
 lgbm_pipeline.fit(X_train, np.ravel(y_train))
@@ -264,9 +275,9 @@ lgbm_pipeline.fit(X_train, np.ravel(y_train))
 lgbm_pred = lgbm_pipeline.predict(X_test)
 #lgbm_pred = np.argmax(lgbm_pred, axis=1)
 print(lgbm_pred)
-print('Mean Squared Error:', mean_squared_error(y_test, lgbm_pred))
+print('Mean Squared Error for LGBM:', mean_squared_error(y_test, lgbm_pred))
 
-#early_stopping = lgb.early_stopping(stopping_rounds=50)
+early_stopping = lgb.early_stopping(stopping_rounds=50)
 kf = KFold(n_splits=5, shuffle=True, random_state=42)
 scores = cross_val_score(lgbm_pipeline, X, y, cv=kf)
 
@@ -277,11 +288,20 @@ search = RandomizedSearchCV(estimator=lgbm_pipeline, param_distributions=grid,
 #search.fit(X_train, np.ravel(y_train), lgbm_model__callbacks=[early_stopping])
 search.fit(X_train, np.ravel(y_train))
 
+search_pred_test = search.predict(X_test)
+search_pred_train = search.predict(X_train)
 
-#https://chatgpt.com/c/68f1505c-21d0-8331-8f98-fd05007cb3f6
-#https://chatgpt.com/c/68f2a0a3-3a7c-832b-babb-839d05a7c568
-#https://lightgbm.readthedocs.io/en/latest/Parameters-Tuning.html
+print('Mean Squared Error for search:', mean_squared_error(y_test, search_pred_test))
 
-#https://gemini.google.com/u/2/app/62dab08f8df5ad32?pageId=none
-#https://www.google.com/search?q=why+is+my+ml+model+with+randomizedsearchcv+not+improving+with+a+parameter+grid&sca_esv=c2292d1d59604bd8&sxsrf=AE3TifN5jDc39h-Bwpr3gAhfGlGCRTYj8A%3A1761867985855&ei=0fgDae74M8-r5NoPqIrsmQ0&ved=0ahUKEwiupcDbjc2QAxXPFVkFHSgFO9MQ4dUDCBM&uact=5&oq=why+is+my+ml+model+with+randomizedsearchcv+not+improving+with+a+parameter+grid&gs_lp=Egxnd3Mtd2l6LXNlcnAiTndoeSBpcyBteSBtbCBtb2RlbCB3aXRoIHJhbmRvbWl6ZWRzZWFyY2hjdiBub3QgaW1wcm92aW5nIHdpdGggYSBwYXJhbWV0ZXIgZ3JpZEjNoAFQjAhYh54BcA14AZABAJgBqwGgAaZBqgEFMzIuNDe4AQPIAQD4AQGYAk2gAoU-qAIQwgIHECMYJxjqAsICChAjGPAFGCcY6gLCAhQQABiABBiRAhi0AhiKBRjqAtgBAcICBBAjGCfCAgoQIxiABBgnGIoFwgIKEAAYgAQYQxiKBcICCxAAGIAEGLEDGIMBwgILEC4YgAQYsQMYgwHCAhEQLhiABBixAxjRAxiDARjHAcICDhAAGIAEGLEDGIMBGIoFwgIOEC4YgAQYsQMY0QMYxwHCAggQLhiABBixA8ICBRAAGIAEwgIIEAAYgAQYsQPCAgQQABgDwgIQECMY8AUYgAQYJxjJAhiKBcICCxAAGIAEGJECGIoFwgIHEAAYgAQYCsICCxAAGIAEGIYDGIoFwgIFEAAY7wXCAgYQABgWGB7CAggQABiiBBiJBcICBRAhGKABwgIFECEYnwXCAgUQIRirAsICCBAAGIAEGKIEwgIHECEYoAEYCpgDCPEFozIDnJYftea6BgYIARABGAGSBwUyMy41NKAH76IDsgcFMTQuNTS4B8M9wgcJMC4yNy40OS4xyAeoAg&sclient=gws-wiz-serp
-#https://gemini.google.com/app/15b3248b3644369f
+
+# The plot shows negative values and is not linear
+plt.figure(figsize=(6,6))
+plt.scatter(y_train, search_pred_train, color='blue', label='Train')
+plt.scatter(y_test, search_pred_test, color='red', label='Test')
+plt.plot([min(y_test), max(y_test)], [min(y_test), max(y_test)], 'k--', lw=2)
+plt.xlabel('Actual Values')
+plt.ylabel('Predicted Values')
+plt.title('Predicted vs Actual')
+plt.legend()
+plt.show()
+
