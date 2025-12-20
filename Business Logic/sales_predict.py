@@ -59,7 +59,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PowerTransformer
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.decomposition import PCA
-
+from sdv.single_table import CTGANSynthesizer
+from sdv.metadata import SingleTableMetadata
 from sklearn.metrics import r2_score
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
@@ -142,6 +143,7 @@ total_compare.sort_values(by=['profit'], ascending=False)
 
 
 
+
 # Need to transform this data
 skewed_data = []   #ORIGINAL PRICE ISNT IN ANY OF THE DATAFRAMES WHY ARE YOU TRANSFORMING THIS
 #skewed_data = ['original_price']
@@ -160,7 +162,6 @@ power_transformer = Pipeline(steps=[
     ('power', PowerTransformer(method='yeo-johnson')),
     ('scaler', StandardScaler())
 ])
-
 
 encoder = OneHotEncoder(handle_unknown='ignore', drop='first', sparse_output=False)
 pca = PCA(n_components=2)
@@ -208,7 +209,9 @@ lgbm = lgb.LGBMRegressor(
     min_child_samples=5,   
     subsample=0.8,
     colsample_bytree=0.8,
-    random_state=42
+    random_state=42,
+    reg_alpha = 0.1,
+    reg_lambda = 0.1,
 )
 
 # Pipeline that combines preprocessing steps and the linear model
@@ -268,15 +271,30 @@ grid = {
     'lgbm_model__reg_alpha': [0, 0.1, 1.0],  # L1 regularization
     'lgbm_model__reg_lambda': [0, 0.1, 1.0],  # L2 regularization
     'lgbm_model__min_split_gain': [0.0, 0.1, 0.5],  # Minimum gain to split
+    'lgbm_model__lambda_l1' : [0, 0.1, 0.5, 1],
+    'lgbm_model__lambda_l1' : [0, 0.1, 0.5, 1, 10]
 }
 
 lgbm_pipeline.fit(X_train, np.ravel(y_train))
 
-lgbm_pred = lgbm_pipeline.predict(X_test)
+lgbm_pred_train = lgbm_pipeline.predict(X_train)
+lgbm_pred_test = lgbm_pipeline.predict(X_test)
 #lgbm_pred = np.argmax(lgbm_pred, axis=1)
-print(lgbm_pred)
-print('Mean Squared Error for LGBM:', mean_squared_error(y_test, lgbm_pred))
+print(lgbm_pred_test)
+print('Mean Squared Error for LGBM:', mean_squared_error(y_test, lgbm_pred_test))
+print('R^2: ', r2_score(y_test, lgbm_pred_test))
 
+plt.figure(figsize=(6,6))
+plt.scatter(y_train, lgbm_pred_train, color='blue', label='Train')
+plt.scatter(y_test, lgbm_pred_test, color='red', label='Test')
+plt.plot([min(y_test), max(y_test)], [min(y_test), max(y_test)], 'k--', lw=2)
+plt.xlabel('Actual Values')
+plt.ylabel('Predicted Values')
+plt.title('Predicted vs Actual')
+plt.legend()
+plt.show()
+
+'''
 early_stopping = lgb.early_stopping(stopping_rounds=50)
 kf = KFold(n_splits=5, shuffle=True, random_state=42)
 scores = cross_val_score(lgbm_pipeline, X, y, cv=kf)
@@ -304,4 +322,53 @@ plt.ylabel('Predicted Values')
 plt.title('Predicted vs Actual')
 plt.legend()
 plt.show()
+'''
 
+# Predict if the product will sell at full price (classification)
+product_compare['sold_full_price'] = (
+    product_compare['unit_price'] >= product_compare['catalog_price'] * 0.95
+)
+
+full_price = product_compare['sold_full_price']
+
+print(len(full_price))
+'''
+X_trainn, X_testt, y_trainn, y_testt = train_test_split(X, full_price, random_state=42)
+
+logistic = LogisticRegression()
+
+logistic_pipeline = Pipeline(steps=[
+    ('preprocessing', preprocess),
+    ('logistic_model', logistic)
+])
+
+linear_pipeline = Pipeline(steps=[
+    ('preprocessing', preprocess),
+    ('linear_model', linear)
+])
+
+# Test if there are 'continuous' errors
+print("y_test dtype:", getattr(y_trainn, "dtype", type(y_trainn)))
+print("y_test sample:", np.array(y_testt[:10]))
+print("X_test dtype:", getattr(X_trainn, "dtype", type(X_trainn)))
+print("X_test sample:", np.array(X_testt[:10]))
+
+# Baseline model to see initial performance
+logistic_pipeline.fit(X_trainn, np.ravel(y_trainn))
+
+# Predicting on X_train sees if model is overfitting
+train_predd = logistic_pipeline.predict(X_trainn)
+test_predd = logistic_pipeline.predict(X_testt)
+
+
+# The plot shows negative values and is not linear
+plt.figure(figsize=(6,6))
+plt.scatter(y_trainn, train_predd, color='blue', label='Train')
+plt.scatter(y_testt, test_predd, color='red', label='Test')
+plt.plot([min(y_testt), max(y_testt)], [min(y_testt), max(y_testt)], 'k--', lw=2)
+plt.xlabel('Actual Values')
+plt.ylabel('Predicted Values')
+plt.title('Predicted vs Actual')
+plt.legend()
+plt.show()
+'''
