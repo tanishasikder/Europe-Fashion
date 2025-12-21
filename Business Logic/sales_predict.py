@@ -322,7 +322,7 @@ plt.ylabel('Predicted Values')
 plt.title('Predicted vs Actual')
 plt.legend()
 plt.show()
-'''
+
 
 # Predict if the product will sell at full price (classification)
 product_compare['sold_full_price'] = (
@@ -332,7 +332,7 @@ product_compare['sold_full_price'] = (
 full_price = product_compare['sold_full_price']
 
 print(len(full_price))
-'''
+
 X_trainn, X_testt, y_trainn, y_testt = train_test_split(X, full_price, random_state=42)
 
 logistic = LogisticRegression()
@@ -372,3 +372,4 @@ plt.title('Predicted vs Actual')
 plt.legend()
 plt.show()
 '''
+
