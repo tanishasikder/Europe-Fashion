@@ -2,11 +2,10 @@ import numpy as np
 import pandas as pd
 import lightgbm as lgb
 from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.preprocessing import LabelEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import train_test_split
 from typing import List, Dict, Optional, Tuple
-import warnings
-from sklearn.preprocessing import OneHotEncoder
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import PowerTransformer
@@ -19,7 +18,7 @@ class MTGBM(BaseEstimator, RegressorMixin):
     # Initializing parameters for the later models to use
     def __init__(
         self,
-        n_tasks = int,
+        n_tasks : int = 3,
         n_estimators=100,      
         learning_rate=0.05,    
         max_depth=3,           
@@ -29,11 +28,13 @@ class MTGBM(BaseEstimator, RegressorMixin):
         colsample_bytree=0.8,
         random_state=42,
         reg_alpha = 0.1,
-        reg_lambda = 0.1
+        reg_lambda = 0.1,
+        share_embeddings: bool = True,  
+        verbose: int = -1 
     ):
         self.n_tasks = n_tasks
         self.n_estimators = n_estimators
-        self.n_learning_rate = learning_rate
+        self.learning_rate = learning_rate
         self.max_depth = max_depth
         self.num_leaves = num_leaves
         self.min_child_samples = min_child_samples
@@ -42,6 +43,8 @@ class MTGBM(BaseEstimator, RegressorMixin):
         self.random_state = random_state
         self.reg_alpha = reg_alpha
         self.reg_lambda = reg_lambda
+        self.share_embeddings = share_embeddings
+        self.verbose = verbose
 
         # Initializing list to have the base models
         self.models_: List[lgb.Booster] = []
@@ -51,6 +54,8 @@ class MTGBM(BaseEstimator, RegressorMixin):
         self.task_correlations_: np.ndarray = None
         # Initializing this to see how important features are
         self.feature_importances_: Dict[int, np.ndarray] = {}
+        # Initializing storage for the indices used for each feature
+        self.feature_indices_: Dict[int, np.ndarray] = None
 
     # y is an array for (n_samples, n_tasks)
     def _get_task_weights(self, y: np.ndarray):
@@ -62,61 +67,68 @@ class MTGBM(BaseEstimator, RegressorMixin):
     # be in a correlation matrix
     def _get_correlations(self, y: np.ndarray):
         return np.corrcoef(y.T)
-
+        
     def _augmented_features(self, X: np.ndarray, task_id: int,
-                            other_predictions: Dict[int, np.cdarray] = None):
+                            other_predictions: Dict[int, np.ndarray] = None):
         # Add predictions from other tasks as features
 
+        if not self.share_embeddings or other_predictions is None:
+            return X
         # First initialize the list with the parameter array
         augmented = [X]
 
         # Loop as long as there are other predictors
-        if len(other_predictions) > 0:
-            for task_ids, predictors in other_predictions.items():
-                if task_ids != task_id:
-                    correlation = self.task_correlations_[task_id, task_ids]
-                    if abs(correlation) > 0.4:
-                        kept_pred = predictors.reshape(-1, 1) * abs(correlation)
-                        augmented.append(kept_pred)
-        
+        for task_ids, predictors in other_predictions.items():
+            if task_ids != task_id:
+                correlation = self.task_correlations_[task_id, task_ids]
+                if abs(correlation) > 0.3:
+                    kept_pred = predictors.reshape(-1, 1) * abs(correlation)
+                    augmented.append(kept_pred)
+         
         return np.hstack(augmented)
     
-    def fit_model(self, X : List[np.ndarray], y: np.ndarray, categorical):
+    def fit(self, X : np.ndarray, y: np.ndarray, feature_indices):
         # X is a list of the features per model. Within each list
         # (n_samples, n_features) are the kinds of values
         # y is (n_samples, n_tasks) which are the targets per task
 
+        if y.ndim == 1:
+            y = y.reshape(-1, 1)
+            
+        if y.shape[1] != self.n_tasks:
+            raise ValueError(f"Expected {self.n_tasks} tasks, got {y.shape[1]}")
+
+        # Store feature indices
+        if feature_indices is None:
+            # Use all features for all tasks
+            self.feature_indices_ = {i: list(range(X.shape[1])) for i in range(self.n_tasks)}
+        else:
+            self.feature_indices_ = feature_indices
+
         self.task_weights_ = self._get_task_weights(y)
         self.task_correlations_ = self._get_correlations(y)
+
+        optional_drop_cols = []
 
         self.models_ = []
         task_predictions = {}
 
-        encoder = OneHotEncoder(handle_unknown='ignore', drop='first', sparse_output=False)
-
-        # Making a pipeline
-        preprocess = ColumnTransformer(transformers=[
-            ('onehot', encoder, categorical),
-            ('numerical', Pipeline([
-                ('power', PowerTransformer(method='yeo-johnson'),
-                 ('scaler', StandardScaler()))
-            ]))
-        ])
-
-        for feature_list in X:
+        for i in range(3):
             current_models = []
             current_predictions = {}
 
             for task in range(self.n_tasks):
-                augmented = self._augmented_features(feature_list, task, task_predictions)
+                specific_task = X[:, self.feature_indices_[task]]
 
+                augmented = self._augmented_features(specific_task, task, task_predictions)
+                    
+                train = lgb.Dataset(augmented, label=y[:, task])
+                    
                 parameters = {
                     'objective': 'regression',
                     'metric': 'rmse',
                     'boosting_type': 'gbdt',
-                    'n_tasks' : self.n_tasks,
-                    'n_estimators' : self.n_estimators,
-                    'learning_rate' : self.n_learning_rate,
+                    'learning_rate' : self.learning_rate,
                     'max_depth' : self.max_depth,
                     'num_leaves' : self.num_leaves,
                     'min_child_samples' : self.min_child_samples,
@@ -124,24 +136,25 @@ class MTGBM(BaseEstimator, RegressorMixin):
                     'colsample_bytree' : self.colsample_bytree,
                     'random_state' : self.random_state,
                     'reg_alpha' : self.reg_alpha,
-                    'reg_alpha' : self.reg_lambda,   
+                    'reg_lambda' : self.reg_lambda,   
                 }
 
-                model = Pipeline(steps=[
-                    ('preprocessing', preprocess),
-                    ('lgbm', lgb.LGBMRegressor(parameters))
-                ])
+                model = lgb.train(
+                    parameters,
+                    train,
+                    num_boost_round=self.n_estimators
+                )
 
-                model.fit(augmented, y[:, task])
                 current_models.append(model)
                 current_predictions[task] = model.predict(augmented)
+                self.feature_importances_[task] = model.feature_importance()
 
             self.models_ = current_models
             task_predictions = current_predictions
         
         return self
 
-    def predict(self, X: np.ndarray):
+    def predict(self, X):
         # Predicting all tasks at once
 
         # Initially create empty array/dictionary
@@ -150,14 +163,15 @@ class MTGBM(BaseEstimator, RegressorMixin):
 
         # Loop through every task and pass it through previous function
         for tasks in range(self.n_tasks):
-            augmented = self._augmented_features(X, tasks, task_predictions)
+            selected_task = X[:, self.feature_indices_[tasks]]
+            augmented = self._augmented_features(selected_task, tasks, task_predictions)
             predict = self.models_[tasks].predict(augmented)
             predictions[:, tasks] = predict
             task_predictions[tasks] = predict
         
         return predictions
     
-    def clothing_predict():
+    def clothing_predict(self):
         np.random.seed(42)
         data = pd.read_excel('Fashion Data/DataPenjualanFashion.xlsx', sheet_name=None)
 
@@ -207,25 +221,60 @@ class MTGBM(BaseEstimator, RegressorMixin):
         # Categorical variables for encoding
         categorical = ['category', 'color', 'size', 'channel']
 
+        categorical_encoding = {}
+
+        for col in categorical:
+            label = LabelEncoder()
+            product_compare[col] = label.fit_transform(product_compare[col])
+            categorical_encoding[col] = label
+
         # Predicting profit margin for the first test
-        first_test = product_compare['category', 'color', 'size', 'catalog_price', 'channel']
-        
         # Predict how much quantity bought will change if unit_price changes
-        second_test = sales_items['original_price', 'unit_price']
-        
-        # Predict how much of a discount will increase/decrease profit margins
-        
         # Predict item total based on original price and channel
-        fourth_test = sales_items['original_price', 'channel']
-
-        first_data = product_compare['profit_margin']
-        more_data = sales_items['quantity', 'item_total']
-
-        X = np.column_stack([first_test, second_test, fourth_test])
-        y = np.column_stack([first_data, more_data])
 
 
+        X = product_compare[['category', 'color', 'size', 'catalog_price', 'channel', 'original_price', 'unit_price']].values
+        y = product_compare[['profit_margin', 'quantity', 'item_total']].values
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
+
+        model = MTGBM(
+            n_tasks=3,
+            n_estimators=100,
+            learning_rate=0.1,
+            max_depth=6,
+            share_embeddings=True,
+            verbose=-1,
+            random_state=42
+        )
+
+        feature_indices = {
+            0: [0, 1, 2, 3, 4, 5],      # Task 0: NO unit_price (index 6)
+            1: [0, 1, 2, 3, 5, 6],      # Task 1: NO cost_price (index 4)  
+            2: [0, 1, 2, 3, 5, 6]       # Task 2: Can use most features
+        }
+
+        model.fit(X_train, y_train, feature_indices=feature_indices)
+        pred = model.predict(X_test)
+
+        task_names = ['profit_margin', 'quantity', 'item_total']
+
+        for task_id in range(3):
+            print(f"TASK {task_id}: {task_names[task_id]}")
+            y_true = y_test[:, task_id]
+            y_task_pred = pred[:, task_id]
+
+            mse = mean_absolute_error(y_true, y_task_pred)
+            print(mse)
+
+        '''
         # Predict if the product will sell at full price (classification)
         product_compare['sold_full_price'] = (
             product_compare['unit_price'] >= product_compare['catalog_price'] * 0.95
         )
+        '''
+
+hi = MTGBM()
+hi.clothing_predict()

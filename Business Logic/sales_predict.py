@@ -373,3 +373,20 @@ plt.legend()
 plt.show()
 '''
 
+#https://chatgpt.com/c/68f1505c-21d0-8331-8f98-fd05007cb3f6
+#https://chatgpt.com/c/68f2a0a3-3a7c-832b-babb-839d05a7c568
+
+
+
+#https://claude.ai/chat/3edd24d8-71e4-42b5-960e-0674099537f4
+#https://claude.ai/chat/b9645a9f-9fc1-4711-969e-f2c183812208
+#https://chatgpt.com/c/694344c3-3bac-8333-b075-8843a83ce308
+
+
+
+
+#https://claude.ai/chat/b9645a9f-9fc1-4711-969e-f2c183812208
+#https://claude.ai/chat/3edd24d8-71e4-42b5-960e-0674099537f4
+
+#https://chatgpt.com/c/6945cd25-5ea4-8331-8632-4437fb84bd1f
+#https://chatgpt.com/c/6945d687-9f64-8330-857b-4c187a7519c3
