@@ -9,6 +9,8 @@ from typing import List, Dict, Optional, Tuple
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import PowerTransformer
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 
 
@@ -56,6 +58,8 @@ class MTGBM(BaseEstimator, RegressorMixin):
         self.feature_importances_: Dict[int, np.ndarray] = {}
         # Initializing storage for the indices used for each feature
         self.feature_indices_: Dict[int, np.ndarray] = None
+        # Track how many augmented features there are
+        self.n_augmented_features_: Dict[int, int] = {}
 
     # y is an array for (n_samples, n_tasks)
     def _get_task_weights(self, y: np.ndarray):
@@ -108,10 +112,10 @@ class MTGBM(BaseEstimator, RegressorMixin):
         self.task_weights_ = self._get_task_weights(y)
         self.task_correlations_ = self._get_correlations(y)
 
-        optional_drop_cols = []
-
         self.models_ = []
         task_predictions = {}
+
+        self.n_augmented_features_ = {}
 
         for i in range(3):
             current_models = []
@@ -123,7 +127,11 @@ class MTGBM(BaseEstimator, RegressorMixin):
                 augmented = self._augmented_features(specific_task, task, task_predictions)
                     
                 train = lgb.Dataset(augmented, label=y[:, task])
-                    
+                
+                # If it is the final iteration, the number of features is stored
+                if i == 2:
+                    self.n_augmented_features_[task] = augmented.shape[1]
+
                 parameters = {
                     'objective': 'regression',
                     'metric': 'rmse',
@@ -165,6 +173,15 @@ class MTGBM(BaseEstimator, RegressorMixin):
         for tasks in range(self.n_tasks):
             selected_task = X[:, self.feature_indices_[tasks]]
             augmented = self._augmented_features(selected_task, tasks, task_predictions)
+
+            expected_num = self.n_augmented_features_[tasks]
+            actual_num = augmented.shape[1]
+            # If expected count and actual count don't match then pad with zeros
+            if actual_num < expected_num:
+                # Creates extra columns of zeros so errors don't happen
+                padding = np.zeros((selected_task.shape[0], expected_num - actual_num))
+                augmented = np.hstack([augmented, padding])
+
             predict = self.models_[tasks].predict(augmented)
             predictions[:, tasks] = predict
             task_predictions[tasks] = predict
@@ -228,17 +245,29 @@ class MTGBM(BaseEstimator, RegressorMixin):
             product_compare[col] = label.fit_transform(product_compare[col])
             categorical_encoding[col] = label
 
-        # Predicting profit margin for the first test
-        # Predict how much quantity bought will change if unit_price changes
-        # Predict item total based on original price and channel
-
-
         X = product_compare[['category', 'color', 'size', 'catalog_price', 'channel', 'original_price', 'unit_price']].values
         y = product_compare[['profit_margin', 'quantity', 'item_total']].values
+        scaler = StandardScaler()
+        '''
+        scaled_columns = [0, 1, 2, 3, 4, 5, 6]
 
+        scaler = ColumnTransformer(
+            transformers=[
+                ('scaler', StandardScaler(), scaled_columns)
+            ],
+            remainder='passthrough'
+        )
+        '''
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42
         )
+        
+        # These indices skew the data negatively
+        y_train = np.delete(y_train, [291, 263], axis=0)
+        X_train = np.delete(X_train, [291, 263], axis=0)
+    
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
 
         model = MTGBM(
             n_tasks=3,
@@ -249,14 +278,17 @@ class MTGBM(BaseEstimator, RegressorMixin):
             verbose=-1,
             random_state=42
         )
-
+        #['category', 'color', 'size', 'catalog_price', 'channel', 'original_price', 'unit_price']
+        # Predicting profit margin for the first test
+        # Predict how much quantity bought will change if unit_price changes
+        # Predict item total based on original price and channel
         feature_indices = {
-            0: [0, 1, 2, 3, 4, 5],      # Task 0: NO unit_price (index 6)
-            1: [0, 1, 2, 3, 5, 6],      # Task 1: NO cost_price (index 4)  
-            2: [0, 1, 2, 3, 5, 6]       # Task 2: Can use most features
+            0: [0, 1, 2, 3],      
+            1: [0, 1, 2, 5, 6],        
+            2: [0, 1, 2, 4, 5]      
         }
 
-        model.fit(X_train, y_train, feature_indices=feature_indices)
+        model.fit(X_train, y_train, feature_indices)
         pred = model.predict(X_test)
 
         task_names = ['profit_margin', 'quantity', 'item_total']
@@ -267,7 +299,7 @@ class MTGBM(BaseEstimator, RegressorMixin):
             y_task_pred = pred[:, task_id]
 
             mse = mean_absolute_error(y_true, y_task_pred)
-            print(mse)
+            print(f"Mean Squared Error: {mse}")
 
         '''
         # Predict if the product will sell at full price (classification)
