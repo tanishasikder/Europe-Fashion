@@ -282,6 +282,7 @@ class MTGBM(BaseEstimator, RegressorMixin):
         # Predicting profit margin for the first test
         # Predict how much quantity bought will change if unit_price changes
         # Predict item total based on original price and channel
+        # Need to handle correlation
         feature_indices = {
             0: [0, 1, 2, 3],      
             1: [0, 1, 2, 5, 6],        
