@@ -1,3 +1,10 @@
+html classes to give users options depending on what they want to predict
+if they want to predict certain stuff let them enter in only a few things
+if they dont care they will enter everything. if they dont know certain stuff 
+then they cant predict that certain thing
+
+
+
 
 handling the code. making sure its good
 
@@ -34,6 +41,7 @@ handling the code. making sure its good
     hyperparameter tuning and grid search
 
     cross validation on training set
+
 
 
 

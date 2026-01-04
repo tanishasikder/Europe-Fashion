@@ -13,6 +13,22 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 
+'''
+Create a class for MTGBM that solves multi-task learning. Decision trees (LGBM)
+are shared then adjusted depending on the task. Parameters are defined in the 
+MTGBM class. There are methods to get things within the MTGBM class using self
+such as weights, feature_indices, models, etc. 
+The clothing_predict method loads in data, initializes dataframes, preprocesses, etc.
+Depending on the specific task, different columns will be used to prevent data leakage.
+Therefore, feature_indices are used to keep track of these columns, and pass the appropriate
+ones to the model. The MTGBM class uses these indices. 
+Augmented features uses these indices and keeps correlations that meet a specific
+threshold. 
+The fit method gets the weights and correlations for the specific task. It loops through
+every task and gets the feature_indices and augmentations. With the parameters
+that were initialized, it trains a model with lgb and stores the current model, predicts, 
+and gets the feature_importance.
+'''
 
 # Creating a class for MTGBM with parameters to inherit.
 # BaseEstimator and RegressorMixin gives methods
@@ -71,7 +87,14 @@ class MTGBM(BaseEstimator, RegressorMixin):
     # be in a correlation matrix
     def _get_correlations(self, y: np.ndarray):
         return np.corrcoef(y.T)
-        
+    
+    '''
+    selected_task = X[:, self.feature_indices_[tasks]]
+    augmented = self._augmented_features(selected_task, tasks, task_predictions)
+
+    expected_num = self.n_augmented_features_[tasks]
+    actual_num = augmented.shape[1]
+    '''
     def _augmented_features(self, X: np.ndarray, task_id: int,
                             other_predictions: Dict[int, np.ndarray] = None):
         # Add predictions from other tasks as features
@@ -84,7 +107,9 @@ class MTGBM(BaseEstimator, RegressorMixin):
         # Loop as long as there are other predictors
         for task_ids, predictors in other_predictions.items():
             if task_ids != task_id:
+                # Check the correlation between two different tasks
                 correlation = self.task_correlations_[task_id, task_ids]
+                # Keep the predictor if it has a specific correlation
                 if abs(correlation) > 0.3:
                     kept_pred = predictors.reshape(-1, 1) * abs(correlation)
                     augmented.append(kept_pred)
@@ -122,10 +147,11 @@ class MTGBM(BaseEstimator, RegressorMixin):
             current_predictions = {}
 
             for task in range(self.n_tasks):
+                # Depending on the task, different features will be used
                 specific_task = X[:, self.feature_indices_[task]]
-
+                # Gets augmented features based on the current task, feature_indices, and predictions
                 augmented = self._augmented_features(specific_task, task, task_predictions)
-                    
+                # Training dataset based on augmented features and labels from the targets
                 train = lgb.Dataset(augmented, label=y[:, task])
                 
                 # If it is the final iteration, the number of features is stored
@@ -153,6 +179,8 @@ class MTGBM(BaseEstimator, RegressorMixin):
                     num_boost_round=self.n_estimators
                 )
 
+                # Stores the model, predicts with the augmented features,
+                # and stores the model's feature importance
                 current_models.append(model)
                 current_predictions[task] = model.predict(augmented)
                 self.feature_importances_[task] = model.feature_importance()
@@ -177,6 +205,8 @@ class MTGBM(BaseEstimator, RegressorMixin):
             expected_num = self.n_augmented_features_[tasks]
             actual_num = augmented.shape[1]
             # If expected count and actual count don't match then pad with zeros
+            # Sometimes only keeping values with a specific correlation can make the
+            # n_features not be the same as the original n_features
             if actual_num < expected_num:
                 # Creates extra columns of zeros so errors don't happen
                 padding = np.zeros((selected_task.shape[0], expected_num - actual_num))
@@ -242,7 +272,9 @@ class MTGBM(BaseEstimator, RegressorMixin):
 
         for col in categorical:
             label = LabelEncoder()
+            # In the initial dataframe, replace every categorical value with the encoded one
             product_compare[col] = label.fit_transform(product_compare[col])
+            # Store the encoders used for every categorical variable
             categorical_encoding[col] = label
 
         X = product_compare[['category', 'color', 'size', 'catalog_price', 'channel', 'original_price', 'unit_price']].values
@@ -265,7 +297,7 @@ class MTGBM(BaseEstimator, RegressorMixin):
         # These indices skew the data negatively
         y_train = np.delete(y_train, [291, 263], axis=0)
         X_train = np.delete(X_train, [291, 263], axis=0)
-    
+
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test)
 
@@ -284,14 +316,15 @@ class MTGBM(BaseEstimator, RegressorMixin):
         # Predict item total based on original price and channel
         # Need to handle correlation
         feature_indices = {
-            0: [0, 1, 2, 3],      
-            1: [0, 1, 2, 5, 6],        
-            2: [0, 1, 2, 4, 5]      
+            0: [0, 1, 2, 3],  # Features for profit margin    
+            1: [0, 1, 2, 5, 6],   # Features for quantity     
+            2: [0, 1, 2, 4, 5]    # Features for item_total
         }
 
         model.fit(X_train, y_train, feature_indices)
         pred = model.predict(X_test)
 
+        # The things that will be predicted
         task_names = ['profit_margin', 'quantity', 'item_total']
 
         for task_id in range(3):
@@ -301,7 +334,7 @@ class MTGBM(BaseEstimator, RegressorMixin):
 
             mse = mean_absolute_error(y_true, y_task_pred)
             print(f"Mean Squared Error: {mse}")
-
+            
         '''
         # Predict if the product will sell at full price (classification)
         product_compare['sold_full_price'] = (
