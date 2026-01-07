@@ -64,14 +64,28 @@ for set_name in ['train', 'val']:
                     print(f"    - {file} (is_file: {os.path.isfile(file_path)})")
 
 
+def get_valid_image(path):
+    path = path.lower()
 
+    if path.endswith(('.jpg', '.jpeg', '.png', '.webp')):
+        return True
+
+    if path.endswith('.avif'):
+        jpg_path = path.replace('.avif', '.jpg')
+        return os.path.exists(jpg_path)
+    
+    return False
 
 
 # Getting the data based on the train/val sets then doing transformations
 image_datasets = {x : datasets.ImageFolder(os.path.join(data_dir, x),
                                            data_transforms[x],
-                                           is_valid_file = lambda path: path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')))
+                                           is_valid_file = get_valid_image)
                                            for x in sets}
+
+#DEBUGGING
+for i in image_datasets:
+    
 
 # Loading the data in batches. Separate dataloaders for color and type tests
 data_loaders = {
@@ -222,4 +236,4 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
 model = train_model(model, criterion, optimizer, step_lr, num_epochs=20)
 
 # Save the model
-torch.save(model.state_dict(), "resnet18_clothing_model.pth")
+#torch.save(model.state_dict(), "resnet18_clothing_model.pth")
