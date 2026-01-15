@@ -52,26 +52,32 @@ class CNN(nn.Module):
     def __init__(self, color_names, type_names, device):
         super().__init__()
         # Load in the pretrained resnet model
-        model = models.resnet18(pretrained=True)
-        self.resnet = model
+        model = models.vgg16(pretrained=True)
 
         # Freeze parameters
-        for param in self.resnet.parameters():
+        for param in model.features.parameters():
             param.requires_grad = False
 
+        self.vgg16_features = model.features
+        self.avgpool = model.avgpool
         # Assign a fully connected layer containing the class names
-        num_features = self.resnet.fc.in_features
+        num_features = 512 * 7 * 7
         # Head to classify the color
+        # len of color_names and type_names is 25 each
         self.fc_color = nn.Linear(num_features, len(color_names))
         # Head to classify the clothing type
         self.fc_type = nn.Linear(num_features, len(type_names))
-        self.resnet.to(device)
+        self.to(device)
     
     def forward(self, x):
         # Gather features and assign it to the color and type heads
-        features = self.resnet(x)
-        color = self.fc_color(features)
-        type = self.fc_type(features)
+        x = self.vgg16_features(x)
+        x = self.avgpool(x)
+        # Flatten the features so it can be used in linear layers
+        # Goes from [batch, 512, 1, 1] to [batch, 512]
+        x = torch.flatten(x, 1)
+        color = self.fc_color(x)
+        type = self.fc_type(x)
         # Return the classification
         return color, type
 
