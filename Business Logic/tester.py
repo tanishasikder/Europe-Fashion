@@ -12,6 +12,7 @@ from sklearn.preprocessing import PowerTransformer
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
+import pickle
 
 '''
 Create a class for MTGBM that solves multi-task learning. Decision trees (LGBM)
@@ -344,3 +345,4 @@ class MTGBM(BaseEstimator, RegressorMixin):
 
 hi = MTGBM()
 hi.clothing_predict()
+

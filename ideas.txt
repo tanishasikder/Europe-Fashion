@@ -1,9 +1,46 @@
+So right now what the model does is that it, it's in like a training, testing kind of phase. 
+So basically, like, with the data set, um, you make a model and with the data set, you basically 
+train the model. And then, like, you just have a bunch of preset inputs to get some preset outputs, 
+but you need to make it in a way where the user can just use the model as it is, like, it's already 
+trained and um it needs to be configured with the point where it can just be Used as having user 
+inputs. So instead of like um having some preset task names, like hard-coded, you need to see how 
+what the user wants, what types of task names that the user wants, and then you have to put it through 
+the model, right? Also have the user be able to put their own image that's extracted and also have 
+their own like configurations regarding other stuff like catalog price, channel, original price, etc. 
+like have their own stuff, right? Right now, it's just in this phase, and you need to configure with 
+the fast API to accept all those user inputs and put it through all the other models.
+
+
+
+
+
+
+
+
+
+
+
+
+
 html classes to give users options depending on what they want to predict
 if they want to predict certain stuff let them enter in only a few things
 if they dont care they will enter everything. if they dont know certain stuff 
 then they cant predict that certain thing
 
-
+calculate user results then use openai api key to generate
+a report to help the user
+low temperature (0 - 0.3)
+low top-k (1-10)
+max tokens
+structured output of json
+use automatic prompt engineering. use LLMs to generate and optimize
+prompts automatically. you prompt a model to create multiple prompt
+variants then evaluate them using metrics then select the highest
+scoring one
+use placeholders in the prompts for configuration
+tell llm to be unbiased
+use LLM self evaluation put the response back in the LLM to
+evaluate it for accuracy
 
 
 handling the code. making sure its good
