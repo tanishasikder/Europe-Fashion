@@ -2,7 +2,7 @@
 This program is about using FastAPI to handle user requests
 '''
 
-from fastapi import FastAPI, File, UploadFile
+from fastapi import Body, FastAPI, File, UploadFile
 import torch
 from torchvision import transforms
 import torchvision.models as models
@@ -15,8 +15,8 @@ from pydantic import BaseModel
 from typing import Optional
 
 # Loading in the clothing predict model
-image_model = models.vgg16(pretrained=True)
-image_model.load_state_dict(torch.load("image_extraction_model")) 
+image_model = models.vgg16(pretrained=False)
+image_model.load_state_dict(torch.load("image_extraction_model"), map_location='cpu') 
 image_model.eval()
 
 # Loading in the stats predict model
@@ -52,27 +52,25 @@ data_transforms = transforms.Compose([
     transforms.Normalize(mean, std)
 ])
 
-def image_model_output(image: Image.Image):
+async def image_model_output(file: UploadFile = File(...)):
+    # Wait for the file to be read
+    contents = await file.read()
+    # Extract the image from content
+    image = Image.open(io.BytesIO(contents)).convert("RGB")
     image = data_transforms(image).unsqueeze(0)
     # Perform inference
     with torch.no_grad():
         predictions = image_model(image)
     
-    return predictions
-
-@app.post("/predict-image/")
-# Asynchronous method, parameter is a file upload
-async def predict_image(file: UploadFile = File(...)):
-    # Wait for the file to be read
-    contents = await file.read()
-    # Extract the image from content
-    image = Image.open(io.BytesIO(contents)).convert("RGB")
-    outputs = image_model_output(image)
-    return outputs.tolist()
+    return predictions.cpu().numpy()
 
 @app.post("/submit")
-async def get_user_params(data : ClothingParameters, file : UploadFile = File(...)):
-    outputs = predict_image(file)
+async def get_user_params(
+    data : ClothingParameters, 
+    file : UploadFile = File(...), 
+    select : int = Body(...)
+):
+    outputs = await image_model_output(file)
 
     # Combine the input parameters with calculated values
     user_params = [
@@ -81,10 +79,10 @@ async def get_user_params(data : ClothingParameters, file : UploadFile = File(..
         data.unit_price or 0,
         data.original_price or 0,
         data.channel or '',
-        outputs.item()
+        outputs
     ]
     # Predict with the other model
-    result = stats_model.predict([user_params])
+    result = stats_model.clothing_predict([user_params, select])
     return result.tolist()
 
 
