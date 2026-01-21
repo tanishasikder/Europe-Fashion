@@ -23,7 +23,7 @@ std = np.array([0.229, 0.224, 0.225])
 #Data transformations for the train and val sets
 data_transforms = {
     'train' : transforms.Compose([
-        transforms.RandomResizedCrop(224),
+        transforms.CenterCrop(224),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize(mean, std)

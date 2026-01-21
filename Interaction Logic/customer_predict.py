@@ -1,8 +1,17 @@
 '''
 This program is about using FastAPI to handle user requests
+
+
+https://chatgpt.com/c/695ae09e-6878-832b-a4c9-fd86ef2c788f
+
+https://chatgpt.com/c/695ae09e-6878-832b-a4c9-fd86ef2c788f
+
+https://claude.ai/chat/65321bb6-5038-4666-bd70-cb27ec73ca83
 '''
 
-from fastapi import Body, FastAPI, File, UploadFile
+from datetime import datetime, timedelta
+import uuid
+from fastapi import Body, FastAPI, File, HTTPException, UploadFile
 import torch
 from torchvision import transforms
 import torchvision.models as models
@@ -14,16 +23,27 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 
-# Loading in the clothing predict model
-image_model = models.vgg16(pretrained=False)
-image_model.load_state_dict(torch.load("image_extraction_model"), map_location='cpu') 
-image_model.eval()
+# Loading in the clothing predict model with error handling
+try: 
+    image_model = models.vgg16(pretrained=False)
+    image_model.load_state_dict(torch.load("image_extraction_model"), map_location='cpu') 
+    image_model.eval()
+except Exception as e:
+    raise
 
-# Loading in the stats predict model
-with open('sales_predict.pkl', 'rb') as f:
-    stats_model = pickle.load(f)
+# Loading in the stats predict model with error handling
+try:
+    with open('sales_predict.pkl', 'rb') as f:
+        stats_model = pickle.load(f)
+except Exception as e:
+    raise
 
 app = FastAPI()
+
+# Temporary storage for image features
+# Store image_id, image characteristics, when uploaded
+# (so it can expire after an hour) for predictions
+image_storage = {}
 
 app.add_middleware(
     CORSMiddleware,
@@ -46,23 +66,42 @@ std = np.array([0.229, 0.224, 0.225])
 
 # Transformations for user input images
 data_transforms = transforms.Compose([
-    transforms.RandomResizedCrop(224),
+    transforms.CenterCrop(224),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     transforms.Normalize(mean, std)
 ])
 
-async def image_model_output(file: UploadFile = File(...)):
+async def image_model_output(file: UploadFile) -> Image.Image:
+    # Make sure the file is an image
+    if not file.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail="File must be an image. Try again")
     # Wait for the file to be read
     contents = await file.read()
-    # Extract the image from content
-    image = Image.open(io.BytesIO(contents)).convert("RGB")
-    image = data_transforms(image).unsqueeze(0)
-    # Perform inference
-    with torch.no_grad():
-        predictions = image_model(image)
+    try:
+        # Extract the image from content
+        image = Image.open(io.BytesIO(contents)).convert("RGB")
+        # Create image ID
+        image_id = str(uuid.uuid4())
+        image = data_transforms(image).unsqueeze(0)
+        # Perform inference
+        with torch.no_grad():
+            predictions = image_model(image)
+
+        image_storage[image_id] = {
+            'features': predictions,
+            'uploaded': datetime.now()
+        }
+    except Exception as e:
+        raise HTTPException(stats_code=500, detail="Sorry. Prediction Failed")
     
-    return predictions.cpu().numpy()
+def remove_expired_images():
+    # Remove images after an hour
+    for key, data in image_storage:
+        upload = image_storage[key]['uploaded']
+        if upload >= upload + timedelta(hours=1):
+            image_storage.pop(upload)
+
 
 @app.post("/submit")
 async def get_user_params(
@@ -70,20 +109,23 @@ async def get_user_params(
     file : UploadFile = File(...), 
     select : int = Body(...)
 ):
-    outputs = await image_model_output(file)
+    try:
+        outputs = await image_model_output(file)
 
-    # Combine the input parameters with calculated values
-    user_params = [
-        data.size or '',
-        data.catalog_price or 0,
-        data.unit_price or 0,
-        data.original_price or 0,
-        data.channel or '',
-        outputs
-    ]
-    # Predict with the other model
-    result = stats_model.clothing_predict([user_params, select])
-    return result.tolist()
+        # Combine the input parameters with calculated values
+        user_params = [
+            data.size or '',
+            data.catalog_price or 0,
+            data.unit_price or 0,
+            data.original_price or 0,
+            data.channel or '',
+            outputs
+        ]
+        # Predict with the other model
+        result = stats_model.clothing_predict([user_params, select])
+        return result.tolist()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Sorry. Prediction Failed")
 
 
 
