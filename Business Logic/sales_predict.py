@@ -229,6 +229,12 @@ class MTGBM(BaseEstimator, RegressorMixin):
             right_index=True
         )
 
+        # Loading in synthetic data file
+        synthetic = pd.read_csv('Fashion Data/synthetic_data.csv')
+
+        # Combine synthetic data with original data
+        product_compare = pd.concat([product_compare, synthetic], ignore_index=True)
+
         # Adds a column to show the product's cost to make
         product_compare['cost_to_make'] = product_compare['cost_price'] * product_compare['quantity']
 

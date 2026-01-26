@@ -13,6 +13,10 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 import pickle
+from sklearn.model_selection import GridSearchCV
+from sklearn.multioutput import MultiOutputRegressor
+from sklearn.ensemble import GradientBoostingRegressor
+
 
 '''
 product level predictions
@@ -94,7 +98,8 @@ class MTGBM(BaseEstimator, RegressorMixin):
         reg_alpha = 0.1,
         reg_lambda = 0.1,
         share_embeddings: bool = True,  
-        verbose: int = -1 
+        verbose: int = -1,
+        feature_indices: Dict[int, List[int]] = None 
     ):
         self.n_tasks = n_tasks
         self.n_estimators = n_estimators
@@ -109,6 +114,7 @@ class MTGBM(BaseEstimator, RegressorMixin):
         self.reg_lambda = reg_lambda
         self.share_embeddings = share_embeddings
         self.verbose = verbose
+        self.feature_indices = feature_indices
 
         # Initializing list to have the base models
         self.models_: List[lgb.Booster] = []
@@ -122,12 +128,6 @@ class MTGBM(BaseEstimator, RegressorMixin):
         self.feature_indices_: Dict[int, np.ndarray] = None
         # Track how many augmented features there are
         self.n_augmented_features_: Dict[int, int] = {}
-
-    # y is an array for (n_samples, n_tasks)
-    def _get_task_weights(self, y: np.ndarray):
-        variances = np.var(y, axis=0)
-        weights = 1.0 / (variances + 1e-8)
-        return weights / weights.sum()
     
     # y was (n_samples, n_tasks) but .T flips it so it can
     # be in a correlation matrix
@@ -144,7 +144,6 @@ class MTGBM(BaseEstimator, RegressorMixin):
     def _augmented_features(self, X: np.ndarray, task_id: int,
                             other_predictions: Dict[int, np.ndarray] = None):
         # Add predictions from other tasks as features
-
         if not self.share_embeddings or other_predictions is None:
             return X
         # First initialize the list with the parameter array
@@ -161,6 +160,12 @@ class MTGBM(BaseEstimator, RegressorMixin):
                     augmented.append(kept_pred)
          
         return np.hstack(augmented)
+    
+    # y is an array for (n_samples, n_tasks)
+    def _get_task_weights(self, y: np.ndarray):
+        variances = np.var(y, axis=0)
+        weights = 1.0 / (variances + 1e-8)
+        return weights / weights.sum()
     
     def fit(self, X : np.ndarray, y: np.ndarray, feature_indices):
         # X is a list of the features per model. Within each list
@@ -188,52 +193,42 @@ class MTGBM(BaseEstimator, RegressorMixin):
 
         self.n_augmented_features_ = {}
 
-        for i in range(3):
-            current_models = []
-            current_predictions = {}
+        for task in range(self.n_tasks):
+            # Depending on the task, different features will be used
+            specific_task = X[:, self.feature_indices_[task]]
+            # Gets augmented features based on the current task, feature_indices, and predictions
+            augmented = self._augmented_features(specific_task, task, task_predictions)
+            # Training dataset based on augmented features and labels from the targets
+            train = lgb.Dataset(augmented, label=y[:, task])
 
-            for task in range(self.n_tasks):
-                # Depending on the task, different features will be used
-                specific_task = X[:, self.feature_indices_[task]]
-                # Gets augmented features based on the current task, feature_indices, and predictions
-                augmented = self._augmented_features(specific_task, task, task_predictions)
-                # Training dataset based on augmented features and labels from the targets
-                train = lgb.Dataset(augmented, label=y[:, task])
-                
-                # If it is the final iteration, the number of features is stored
-                if i == 2:
-                    self.n_augmented_features_[task] = augmented.shape[1]
+            parameters = {
+                'objective': 'regression',
+                'metric': 'rmse',
+                'boosting_type': 'gbdt',
+                'learning_rate' : self.learning_rate,
+                'max_depth' : self.max_depth,
+                'num_leaves' : self.num_leaves,
+                'min_child_samples' : self.min_child_samples,
+                'subsample' : self.subsample,
+                'colsample_bytree' : self.colsample_bytree,
+                'random_state' : self.random_state,
+                'reg_alpha' : self.reg_alpha,
+                'reg_lambda' : self.reg_lambda,   
+            }
 
-                parameters = {
-                    'objective': 'regression',
-                    'metric': 'rmse',
-                    'boosting_type': 'gbdt',
-                    'learning_rate' : self.learning_rate,
-                    'max_depth' : self.max_depth,
-                    'num_leaves' : self.num_leaves,
-                    'min_child_samples' : self.min_child_samples,
-                    'subsample' : self.subsample,
-                    'colsample_bytree' : self.colsample_bytree,
-                    'random_state' : self.random_state,
-                    'reg_alpha' : self.reg_alpha,
-                    'reg_lambda' : self.reg_lambda,   
-                }
+            model = lgb.train(
+                parameters,
+                train,
+                num_boost_round=self.n_estimators
+            )
 
-                model = lgb.train(
-                    parameters,
-                    train,
-                    num_boost_round=self.n_estimators
-                )
+            # Stores the model, predicts with the augmented features,
+            # and stores the model's feature importance
+            self.models_.append(model)
+            task_predictions[task] = model.predict(augmented)
+            self.feature_importances_[task] = model.feature_importance()
+            self.n_augmented_features_[task] = augmented.shape[1]
 
-                # Stores the model, predicts with the augmented features,
-                # and stores the model's feature importance
-                current_models.append(model)
-                current_predictions[task] = model.predict(augmented)
-                self.feature_importances_[task] = model.feature_importance()
-
-            self.models_ = current_models
-            task_predictions = current_predictions
-        
         return self
 
     def predict(self, X):
@@ -302,6 +297,22 @@ class MTGBM(BaseEstimator, RegressorMixin):
             right_index=True
         )
 
+        params = {
+            'n_estimators': [100, 200],
+            'learning_rate': [0.05, 0.1],
+            'max_depth': [3, 5, 7],
+            'num_leaves': [15, 31]
+        }
+
+        # Save product_compare as a CSV file to generate synthetic data
+        #product_compare.to_csv('C:/Users/Tanis/Downloads/Europe-Fashion/Fashion Data/product_comparing.csv', index=False)
+
+        # After making the CSV file, generate synthetic data, loading here.
+        synthetic = pd.read_csv('Fashion Data/synthetic_data.csv')
+
+        # Combine synthetic data with original data
+        product_compare = pd.concat([product_compare, synthetic], ignore_index=True)
+
         # Adds a column to show the product's cost to make
         product_compare['cost_to_make'] = product_compare['cost_price'] * product_compare['quantity']
 
@@ -325,7 +336,7 @@ class MTGBM(BaseEstimator, RegressorMixin):
 
         X = product_compare[['category', 'color', 'size', 'catalog_price', 'channel', 'original_price', 'unit_price']].values
         y = product_compare[['profit_margin', 'quantity', 'item_total']].values
-        scaler = StandardScaler()
+
         '''
         scaled_columns = [0, 1, 2, 3, 4, 5, 6]
 
@@ -336,26 +347,26 @@ class MTGBM(BaseEstimator, RegressorMixin):
             remainder='passthrough'
         )
         '''
+
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42
         )
         
+        '''
+        gb = GradientBoostingRegressor(random_state=42)
+        multi = MultiOutputRegressor(gb)
+        grid = GridSearchCV(multi, params, cv=5, scoring='neg_mean_absolute_error')
+        grid.fit(X_train, y_train)
+        print(f"Best params: {grid.best_params_}")
+        print(f"Best score: {-grid.best_score_}")
+        '''
         # These indices skew the data negatively
         y_train = np.delete(y_train, [291, 263], axis=0)
         X_train = np.delete(X_train, [291, 263], axis=0)
 
-        X_train = scaler.fit_transform(X_train)
-        X_test = scaler.transform(X_test)
+       # X_train = scaler.fit_transform(X_train)
+        #X_test = scaler.transform(X_test)
 
-        model = MTGBM(
-            n_tasks=3,
-            n_estimators=100,
-            learning_rate=0.1,
-            max_depth=6,
-            share_embeddings=True,
-            verbose=-1,
-            random_state=42
-        )
         #['category', 'color', 'size', 'catalog_price', 'channel', 'original_price', 'unit_price']
         # Predicting profit margin for the first test
         # Predict how much quantity bought will change if unit_price changes
@@ -367,10 +378,24 @@ class MTGBM(BaseEstimator, RegressorMixin):
             2: [0, 1, 2, 4, 5]    # Features for item_total
         }
 
+        model = MTGBM(
+            n_tasks=3,
+            n_estimators=100,
+            learning_rate=0.1,
+            max_depth=6,
+            share_embeddings=True,
+            verbose=-1,
+            random_state=42,
+            feature_indices = feature_indices
+        )
+
+
+        grid = GridSearchCV(model, params, cv=5, scoring='neg_mean_squared_error')
+        grid.fit(X_train, y_train)
+
+        '''
         model.fit(X_train, y_train, feature_indices)
 
-
-        # THE STUFF BELOW ARE FOR TESTING THE MODEL. NOT USED FOR ACTUAL DEVELOPMENT
         pred = model.predict(X_test)
 
         # The things that will be predicted
@@ -384,7 +409,7 @@ class MTGBM(BaseEstimator, RegressorMixin):
             mse = mean_absolute_error(y_true, y_task_pred)
             print(f"Mean Squared Error: {mse}")
             
-        '''
+        
         # Predict if the product will sell at full price (classification)
         product_compare['sold_full_price'] = (
             product_compare['unit_price'] >= product_compare['catalog_price'] * 0.95
@@ -392,5 +417,6 @@ class MTGBM(BaseEstimator, RegressorMixin):
         '''
 
 hi = MTGBM()
+
 hi.clothing_predict()
 
