@@ -97,38 +97,48 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
             else:
                 model.eval()
 
-        loss = 0.0
-        correct = 0
+            loss = 0.0
+            correct = 0
 
-        # Loop over the labels and the images in the dataloader
-        for input, label in data_loaders[phase]:
-            inputs = input.to(device)
-            labels = label.to(device)
+            # Loop over the labels and the images in the dataloader
+            for input, label in data_loaders[phase]:
+                inputs = input.to(device)
+                label = label.to(device)
 
-            with torch.set_grad_enabled(phase=='train'):
-                # Gets the outputs from resnet model
-                color, type = model(inputs)
+                with torch.set_grad_enabled(phase=='train'):
+                    # Gets the outputs from resnet model
+                    color, clothing_type = model(inputs)
 
-                # Gets the largest score then calculates loss
-                _, color_pred = torch.max(color, 1)
-                color_loss = criterion(color, labels)
+                    # Labels is a tensor of indices from the original file name
+                    # Must separate labels to match color and clothing type
+                    color_labels = torch.tensor([color_names.index(image_datasets[phase].classes[l].split('_')[0]
+                                                                for l in label)])
+                    type_labels = torch.tensor([type_names.index(image_datasets[phase].classes[l].split('_')[1]
+                                                for l in label)])
+
+                    color_labels = color_labels.to(device)
+                    type_labels = type_labels.to(device)
+
+                    # Gets the largest score then calculates loss
+                    _, color_pred = torch.max(color, 1)
+                    color_loss = criterion(color, color_labels)
+
+                    _, type_pred = torch.max(clothing_type, 1)
+                    type_loss = criterion(clothing_type, type_labels)
+
+                    # Overall loss from both predictions
+                    loss = type_loss + color_loss
+
+                    # Optimizes and backward propagates if it is training
+                    if phase == 'train':
+                        optimizer.zero_grad()
+                        loss.backward()
+                        optimizer.step()
                 
-                _, type_pred = torch.max(type, 1)
-                type_loss = criterion(type, labels)
-
-                # Overall loss from both predictions
-                loss = type_loss + color_loss
-                preds = color_pred + type_pred
-
-                # Optimizes and backward propagates if it is training
-                if phase == 'train':
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
-            
-            # Calculates the loss and correct labels
-            run_loss += loss.item() * inputs.size(0)
-            correct += torch.sum(preds == labels.data)
+                # Calculates the loss and correct labels
+                run_loss += loss.item() * inputs.size(0)
+                correct += torch.sum(color_pred == (color_labels).item())
+                correct += torch.sum(type_pred == (type_labels).item())
 
         if phase == 'train':
             scheduler.step()
@@ -170,7 +180,7 @@ if __name__ == '__main__':
     color_names = image_datasets['train'].classes.copy()
     type_names = image_datasets['train'].classes.copy()
 
-    # Configuring with color and type classes. Removing dashes
+    # Configuring with color and clothing classes. Removing dashes
     for color in color_names:
         dash = color.index('_')
         color_index = color_names.index(color)
@@ -180,7 +190,7 @@ if __name__ == '__main__':
     for type in type_names:
         dash = type.index('_')
         type_index = type_names.index(type)
-        replace_type = type[dash:]
+        replace_type = type[dash+1:]
         type_names[type_index] = replace_type
 
     model = CNN(color_names, type_names, device)
