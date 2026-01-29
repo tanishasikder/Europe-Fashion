@@ -17,6 +17,7 @@ from sklearn.model_selection import RandomizedSearchCV
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.ensemble import GradientBoostingRegressor
 from scipy.stats import uniform, randint
+from scipy import stats
 
 
 '''
@@ -91,25 +92,25 @@ class MTGBM(BaseEstimator, RegressorMixin):
         n_estimators=50,      
         learning_rate=0.05,    
         max_depth=3,           
-        num_leaves=7,         
+        #num_leaves=7,         
         min_child_samples=30,   
-        subsample=0.8,
-        colsample_bytree=0.8,
+        #subsample=0.8,
+        #colsample_bytree=0.8,
         random_state=42,
         reg_alpha = 0.5,
         reg_lambda = 3.0,
         share_embeddings: bool = True,  
-        verbose: int = -1,
+        verbose: int = -1
         #feature_indices: Dict[int, List[int]] = None 
     ):
         self.n_tasks = n_tasks
         self.n_estimators = n_estimators
         self.learning_rate = learning_rate
         self.max_depth = max_depth
-        self.num_leaves = num_leaves
+        #self.num_leaves = num_leaves
         self.min_child_samples = min_child_samples
-        self.subsample = subsample
-        self.colsample_bytree = colsample_bytree
+        #self.subsample = subsample
+        #self.colsample_bytree = colsample_bytree
         self.random_state = random_state
         self.reg_alpha = reg_alpha
         self.reg_lambda = reg_lambda
@@ -206,10 +207,10 @@ class MTGBM(BaseEstimator, RegressorMixin):
                 'boosting_type': 'gbdt',
                 'learning_rate' : self.learning_rate,
                 'max_depth' : self.max_depth,
-                'num_leaves' : self.num_leaves,
+                #'num_leaves' : self.num_leaves,
                 'min_child_samples' : self.min_child_samples,
-                'subsample' : self.subsample,
-                'colsample_bytree' : self.colsample_bytree,
+                #'subsample' : self.subsample,
+                #'colsample_bytree' : self.colsample_bytree,
                 'random_state' : self.random_state,
                 'reg_alpha' : self.reg_alpha,
                 'reg_lambda' : self.reg_lambda,   
@@ -329,8 +330,6 @@ def clothing_predict():
         X = product_compare[['category', 'color', 'size', 'catalog_price', 'channel', 'original_price', 'unit_price']].values
         y = product_compare[['profit_margin', 'quantity', 'item_total']].values
         
-        numeric_cols = [3, 5, 6]
-        scaler = StandardScaler()
         #X[:, numeric_cols] = scaler.fit_transform(X[:, numeric_cols])
 
         '''
@@ -381,9 +380,10 @@ def clothing_predict():
             n_estimators=50,
             learning_rate=0.1,
             max_depth=5,
-            share_embeddings=True,
+            #share_embeddings=True,
             verbose=-1,
-            random_state=42
+            random_state=42,
+            #objective='huber'
         )
 
         model.fit(X_train, y_train, feature_indices)
