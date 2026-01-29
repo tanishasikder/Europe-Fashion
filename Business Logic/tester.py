@@ -13,9 +13,10 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 import pickle
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import RandomizedSearchCV
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.ensemble import GradientBoostingRegressor
+from scipy.stats import uniform, randint
 
 
 '''
@@ -87,19 +88,19 @@ class MTGBM(BaseEstimator, RegressorMixin):
     def __init__(
         self,
         n_tasks : int = 3,
-        n_estimators=100,      
+        n_estimators=50,      
         learning_rate=0.05,    
         max_depth=3,           
-        num_leaves=15,         
-        min_child_samples=5,   
+        num_leaves=7,         
+        min_child_samples=30,   
         subsample=0.8,
         colsample_bytree=0.8,
         random_state=42,
-        reg_alpha = 0.1,
-        reg_lambda = 0.1,
+        reg_alpha = 0.5,
+        reg_lambda = 3.0,
         share_embeddings: bool = True,  
         verbose: int = -1,
-        feature_indices: Dict[int, List[int]] = None 
+        #feature_indices: Dict[int, List[int]] = None 
     ):
         self.n_tasks = n_tasks
         self.n_estimators = n_estimators
@@ -114,7 +115,7 @@ class MTGBM(BaseEstimator, RegressorMixin):
         self.reg_lambda = reg_lambda
         self.share_embeddings = share_embeddings
         self.verbose = verbose
-        self.feature_indices = feature_indices
+        #self.feature_indices = feature_indices
 
         # Initializing list to have the base models
         self.models_: List[lgb.Booster] = []
@@ -179,10 +180,8 @@ class MTGBM(BaseEstimator, RegressorMixin):
             raise ValueError(f"Expected {self.n_tasks} tasks, got {y.shape[1]}")
 
         # Store feature indices
-        if feature_indices is None:
+        if self.feature_indices_ is None:
             # Use all features for all tasks
-            self.feature_indices_ = {i: list(range(X.shape[1])) for i in range(self.n_tasks)}
-        else:
             self.feature_indices_ = feature_indices
 
         self.task_weights_ = self._get_task_weights(y)
@@ -259,7 +258,7 @@ class MTGBM(BaseEstimator, RegressorMixin):
         
         return predictions
     
-    def clothing_predict(self):
+def clothing_predict():
         np.random.seed(42)
         data = pd.read_excel('Fashion Data/DataPenjualanFashion.xlsx', sheet_name=None)
 
@@ -297,13 +296,6 @@ class MTGBM(BaseEstimator, RegressorMixin):
             right_index=True
         )
 
-        params = {
-            'n_estimators': [100, 200],
-            'learning_rate': [0.05, 0.1],
-            'max_depth': [3, 5, 7],
-            'num_leaves': [15, 31]
-        }
-
         # Save product_compare as a CSV file to generate synthetic data
         #product_compare.to_csv('C:/Users/Tanis/Downloads/Europe-Fashion/Fashion Data/product_comparing.csv', index=False)
 
@@ -336,6 +328,10 @@ class MTGBM(BaseEstimator, RegressorMixin):
 
         X = product_compare[['category', 'color', 'size', 'catalog_price', 'channel', 'original_price', 'unit_price']].values
         y = product_compare[['profit_margin', 'quantity', 'item_total']].values
+        
+        numeric_cols = [3, 5, 6]
+        scaler = StandardScaler()
+        #X[:, numeric_cols] = scaler.fit_transform(X[:, numeric_cols])
 
         '''
         scaled_columns = [0, 1, 2, 3, 4, 5, 6]
@@ -361,8 +357,10 @@ class MTGBM(BaseEstimator, RegressorMixin):
         print(f"Best score: {-grid.best_score_}")
         '''
         # These indices skew the data negatively
-        y_train = np.delete(y_train, [291, 263], axis=0)
-        X_train = np.delete(X_train, [291, 263], axis=0)
+        mask = np.ones(len(X_train), dtype=bool)
+        mask[[291, 263]] = False
+        y_train = y_train[mask]
+        X_train = X_train[mask]
 
        # X_train = scaler.fit_transform(X_train)
         #X_test = scaler.transform(X_test)
@@ -374,26 +372,20 @@ class MTGBM(BaseEstimator, RegressorMixin):
         # Need to handle correlation
         feature_indices = {
             0: [0, 1, 2, 3],  # Features for profit margin    
-            1: [0, 1, 2, 5, 6],   # Features for quantity     
+            1: [0, 1, 2, 3, 5],   # Features for quantity     
             2: [0, 1, 2, 4, 5]    # Features for item_total
         }
 
         model = MTGBM(
             n_tasks=3,
-            n_estimators=100,
+            n_estimators=50,
             learning_rate=0.1,
-            max_depth=6,
+            max_depth=5,
             share_embeddings=True,
             verbose=-1,
-            random_state=42,
-            feature_indices = feature_indices
+            random_state=42
         )
 
-
-        grid = GridSearchCV(model, params, cv=5, scoring='neg_mean_squared_error')
-        grid.fit(X_train, y_train)
-
-        '''
         model.fit(X_train, y_train, feature_indices)
 
         pred = model.predict(X_test)
@@ -414,9 +406,7 @@ class MTGBM(BaseEstimator, RegressorMixin):
         product_compare['sold_full_price'] = (
             product_compare['unit_price'] >= product_compare['catalog_price'] * 0.95
         )
-        '''
 
-hi = MTGBM()
+        
 
-hi.clothing_predict()
-
+clothing_predict()
