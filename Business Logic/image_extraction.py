@@ -23,8 +23,10 @@ std = np.array([0.229, 0.224, 0.225])
 #Data transformations for the train and val sets
 data_transforms = {
     'train' : transforms.Compose([
+        transforms.Resize(256),
         transforms.CenterCrop(224),
         transforms.RandomHorizontalFlip(),
+        #transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.5, hue=0.5),
         transforms.ToTensor(),
         transforms.Normalize(mean, std)
     ]),
@@ -65,8 +67,10 @@ class CNN(nn.Module):
         # Head to classify the color
         # len of color_names and type_names is 25 each
         self.fc_color = nn.Linear(num_features, len(color_names))
+        #self.dropout1 = nn.Dropout(0.5)
         # Head to classify the clothing type
         self.fc_type = nn.Linear(num_features, len(type_names))
+        #self.dropout2 = nn.Dropout(0.5)
         self.to(device)
     
     def forward(self, x):
@@ -76,7 +80,9 @@ class CNN(nn.Module):
         # Flatten the features so it can be used in linear layers
         # Goes from [batch, 512, 1, 1] to [batch, 512]
         x = torch.flatten(x, 1)
+        #x = self.dropout1(x)
         color = self.fc_color(x)
+        #x = self.dropout2(x)
         type = self.fc_type(x)
         # Return the classification
         return color, type
@@ -85,7 +91,6 @@ class CNN(nn.Module):
 def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
     best_model = copy.deepcopy(model.state_dict())
     best_accuracy = 0.0
-    run_loss = 0.0
     best_model = None
 
     for epoch in range(num_epochs):
@@ -97,6 +102,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
             else:
                 model.eval()
 
+            run_loss = 0.0
             loss = 0.0
             correct = 0
 
@@ -111,10 +117,10 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
 
                     # Labels is a tensor of indices from the original file name
                     # Must separate labels to match color and clothing type
-                    color_labels = torch.tensor([color_names.index(image_datasets[phase].classes[l].split('_')[0]
-                                                                for l in label)])
-                    type_labels = torch.tensor([type_names.index(image_datasets[phase].classes[l].split('_')[1]
-                                                for l in label)])
+                    color_labels = torch.tensor([color_names.index(image_datasets[phase].classes[l].split('_')[0])
+                                                 for l in label])
+                    type_labels = torch.tensor([type_names.index(image_datasets[phase].classes[l].split('_')[1])
+                                                for l in label])
 
                     color_labels = color_labels.to(device)
                     type_labels = type_labels.to(device)
@@ -137,15 +143,13 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
                 
                 # Calculates the loss and correct labels
                 run_loss += loss.item() * inputs.size(0)
-                correct += torch.sum(color_pred == (color_labels).item())
-                correct += torch.sum(type_pred == (type_labels).item())
-
-        if phase == 'train':
-            scheduler.step()
+                correct += torch.sum(color_pred == (color_labels))
+                correct += torch.sum(type_pred == (type_labels))
         
         # Overall loss and accuracy of this model
         epoch_loss = run_loss / dataset_sizes[phase]
-        epoch_accuracy = correct.double() / dataset_sizes[phase]
+        #print(f'data_size phase{dataset_sizes}')
+        epoch_accuracy = correct / (2* dataset_sizes[phase])
 
         print(f'{phase} Loss : {epoch_loss:.3f} Accuracy : {epoch_accuracy:.3f}')
 
@@ -154,6 +158,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
             best_accuracy = epoch_accuracy
             best_model = copy.deepcopy(model.state_dict())
 
+        scheduler.step()
     print(f'Best model accuracy: {best_accuracy:.3f}')
     model.load_state_dict(best_model)
     return model
@@ -195,12 +200,12 @@ if __name__ == '__main__':
 
     model = CNN(color_names, type_names, device)
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=0.001)
+    optimizer = optim.SGD(model.parameters(), lr=1e-4, weight_decay=1e-4)
 
     # Every 7 epochs the learning rate is multiplied by gamma
     step_lr = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
         
     # Initializing the final model with all the parameters
-    model = train_model(model, criterion, optimizer, step_lr, num_epochs=20)
+    model = train_model(model, criterion, optimizer, step_lr, num_epochs=10)
     # Save the model
     #torch.save(model.state_dict(), "resnet18_clothing_model.pth")
