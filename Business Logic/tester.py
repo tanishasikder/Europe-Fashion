@@ -18,6 +18,8 @@ from sklearn.multioutput import MultiOutputRegressor
 from sklearn.ensemble import GradientBoostingRegressor
 from scipy.stats import uniform, randint
 from scipy import stats
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 
 '''
@@ -93,13 +95,13 @@ class MTGBM(BaseEstimator, RegressorMixin):
         learning_rate=0.05,    
         max_depth=3,           
         #num_leaves=7,         
-        min_child_samples=30,   
+        min_child_samples=32,   
         #subsample=0.8,
         #colsample_bytree=0.8,
-        random_state=42,
-        reg_alpha = 0.5,
+        random_state=41,
+        #reg_alpha = 0.5,
         reg_lambda = 3.0,
-        share_embeddings: bool = True,  
+        #share_embeddings: bool = True,  
         verbose: int = -1
         #feature_indices: Dict[int, List[int]] = None 
     ):
@@ -112,9 +114,9 @@ class MTGBM(BaseEstimator, RegressorMixin):
         #self.subsample = subsample
         #self.colsample_bytree = colsample_bytree
         self.random_state = random_state
-        self.reg_alpha = reg_alpha
+        #self.reg_alpha = reg_alpha
         self.reg_lambda = reg_lambda
-        self.share_embeddings = share_embeddings
+        #self.share_embeddings = share_embeddings
         self.verbose = verbose
         #self.feature_indices = feature_indices
 
@@ -146,7 +148,9 @@ class MTGBM(BaseEstimator, RegressorMixin):
     def _augmented_features(self, X: np.ndarray, task_id: int,
                             other_predictions: Dict[int, np.ndarray] = None):
         # Add predictions from other tasks as features
-        if not self.share_embeddings or other_predictions is None:
+       # if not self.share_embeddings or other_predictions is None:
+        #    return X
+        if other_predictions is None:
             return X
         # First initialize the list with the parameter array
         augmented = [X]
@@ -212,7 +216,7 @@ class MTGBM(BaseEstimator, RegressorMixin):
                 #'subsample' : self.subsample,
                 #'colsample_bytree' : self.colsample_bytree,
                 'random_state' : self.random_state,
-                'reg_alpha' : self.reg_alpha,
+                #'reg_alpha' : self.reg_alpha,
                 'reg_lambda' : self.reg_lambda,   
             }
 
@@ -372,7 +376,7 @@ def clothing_predict():
         feature_indices = {
             0: [0, 1, 2, 3],  # Features for profit margin    
             1: [0, 1, 2, 3, 5],   # Features for quantity     
-            2: [0, 1, 2, 4, 5]    # Features for item_total
+            2: [0, 1, 2, 3, 5]    # Features for item_total
         }
 
         model = MTGBM(
@@ -389,6 +393,25 @@ def clothing_predict():
         model.fit(X_train, y_train, feature_indices)
 
         pred = model.predict(X_test)
+
+        # 2. Setup Plotting Data
+        # Combine into a DataFrame for easier Seaborn handling
+        print(len(pred.ravel()))
+        print(len(y_test.ravel()))
+        plot_df = pd.DataFrame({
+            'Value': np.concatenate([y_test.ravel(), pred.ravel()]),
+            'Type': (['Actual'] * (len(y_test.ravel()))) + (['Predicted'] * (len(pred.ravel())))
+        })
+
+        # 3. Create the Stripplot
+        sns.set_theme(style='whitegrid')
+        plt.figure(figsize=(10, 5))
+
+        # Comparing Actual vs Predicted distributions side-by-side
+        sns.stripplot(data=plot_df, x='Value', y='Type', size=8, jitter=True, alpha=0.6)
+
+        plt.title("Model Performance: Actual vs Predicted Distribution")
+        plt.show()
 
         # The things that will be predicted
         task_names = ['profit_margin', 'quantity', 'item_total']
