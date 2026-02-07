@@ -3,12 +3,23 @@ import pandas as pd
 import lightgbm as lgb
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.preprocessing import LabelEncoder
+from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import train_test_split
-from typing import List, Dict
+from typing import List, Dict, Optional, Tuple
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import PowerTransformer
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 import pickle
-
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn.multioutput import MultiOutputRegressor
+from sklearn.ensemble import GradientBoostingRegressor
+from scipy.stats import uniform, randint
+from scipy import stats
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 # Creating a class for MTGBM with parameters to inherit.
 # BaseEstimator and RegressorMixin gives methods
@@ -17,31 +28,21 @@ class MTGBM(BaseEstimator, RegressorMixin):
     def __init__(
         self,
         n_tasks : int = 3,
-        n_estimators=100,      
+        n_estimators=50,      
         learning_rate=0.05,    
-        max_depth=3,           
-        num_leaves=15,         
-        min_child_samples=5,   
-        subsample=0.8,
-        colsample_bytree=0.8,
-        random_state=42,
-        reg_alpha = 0.1,
-        reg_lambda = 0.1,
-        share_embeddings: bool = True,  
-        verbose: int = -1 
+        max_depth=3,                   
+        min_child_samples=32,   
+        random_state=41,
+        reg_lambda = 3.0,
+        verbose: int = -1
     ):
         self.n_tasks = n_tasks
         self.n_estimators = n_estimators
         self.learning_rate = learning_rate
         self.max_depth = max_depth
-        self.num_leaves = num_leaves
         self.min_child_samples = min_child_samples
-        self.subsample = subsample
-        self.colsample_bytree = colsample_bytree
         self.random_state = random_state
-        self.reg_alpha = reg_alpha
         self.reg_lambda = reg_lambda
-        self.share_embeddings = share_embeddings
         self.verbose = verbose
 
         # Initializing list to have the base models
@@ -56,12 +57,6 @@ class MTGBM(BaseEstimator, RegressorMixin):
         self.feature_indices_: Dict[int, np.ndarray] = None
         # Track how many augmented features there are
         self.n_augmented_features_: Dict[int, int] = {}
-
-    # y is an array for (n_samples, n_tasks)
-    def _get_task_weights(self, y: np.ndarray):
-        variances = np.var(y, axis=0)
-        weights = 1.0 / (variances + 1e-8)
-        return weights / weights.sum()
     
     # y was (n_samples, n_tasks) but .T flips it so it can
     # be in a correlation matrix
@@ -71,8 +66,9 @@ class MTGBM(BaseEstimator, RegressorMixin):
     def _augmented_features(self, X: np.ndarray, task_id: int,
                             other_predictions: Dict[int, np.ndarray] = None):
         # Add predictions from other tasks as features
-
-        if not self.share_embeddings or other_predictions is None:
+       # if not self.share_embeddings or other_predictions is None:
+        #    return X
+        if other_predictions is None:
             return X
         # First initialize the list with the parameter array
         augmented = [X]
@@ -89,6 +85,12 @@ class MTGBM(BaseEstimator, RegressorMixin):
          
         return np.hstack(augmented)
     
+    # y is an array for (n_samples, n_tasks)
+    def _get_task_weights(self, y: np.ndarray):
+        variances = np.var(y, axis=0)
+        weights = 1.0 / (variances + 1e-8)
+        return weights / weights.sum()
+    
     def fit(self, X : np.ndarray, y: np.ndarray, feature_indices):
         # X is a list of the features per model. Within each list
         # (n_samples, n_features) are the kinds of values
@@ -101,10 +103,8 @@ class MTGBM(BaseEstimator, RegressorMixin):
             raise ValueError(f"Expected {self.n_tasks} tasks, got {y.shape[1]}")
 
         # Store feature indices
-        if feature_indices is None:
+        if self.feature_indices_ is None:
             # Use all features for all tasks
-            self.feature_indices_ = {i: list(range(X.shape[1])) for i in range(self.n_tasks)}
-        else:
             self.feature_indices_ = feature_indices
 
         self.task_weights_ = self._get_task_weights(y)
@@ -115,193 +115,189 @@ class MTGBM(BaseEstimator, RegressorMixin):
 
         self.n_augmented_features_ = {}
 
-        for i in range(3):
-            current_models = []
-            current_predictions = {}
+        for task in range(self.n_tasks):
+            # Depending on the task, different features will be used
+            specific_task = X[:, self.feature_indices_[task]]
+            # Gets augmented features based on the current task, feature_indices, and predictions
+            augmented = self._augmented_features(specific_task, task, task_predictions)
+            # Training dataset based on augmented features and labels from the targets
+            train = lgb.Dataset(augmented, label=y[:, task])
 
-            for task in range(self.n_tasks):
-                # Depending on the task, different features will be used
-                specific_task = X[:, self.feature_indices_[task]]
-                # Gets augmented features based on the current task, feature_indices, and predictions
-                augmented = self._augmented_features(specific_task, task, task_predictions)
-                # Training dataset based on augmented features and labels from the targets
-                train = lgb.Dataset(augmented, label=y[:, task])
-                
-                # If it is the final iteration, the number of features is stored
-                if i == 2:
-                    self.n_augmented_features_[task] = augmented.shape[1]
+            parameters = {
+                'objective': 'regression',
+                'metric': 'rmse',
+                'boosting_type': 'gbdt',
+                'learning_rate' : self.learning_rate,
+                'max_depth' : self.max_depth,
+                'min_child_samples' : self.min_child_samples,
+                'random_state' : self.random_state,
+                'reg_lambda' : self.reg_lambda,   
+            }
 
-                parameters = {
-                    'objective': 'regression',
-                    'metric': 'rmse',
-                    'boosting_type': 'gbdt',
-                    'learning_rate' : self.learning_rate,
-                    'max_depth' : self.max_depth,
-                    'num_leaves' : self.num_leaves,
-                    'min_child_samples' : self.min_child_samples,
-                    'subsample' : self.subsample,
-                    'colsample_bytree' : self.colsample_bytree,
-                    'random_state' : self.random_state,
-                    'reg_alpha' : self.reg_alpha,
-                    'reg_lambda' : self.reg_lambda,   
-                }
+            model = lgb.train(
+                parameters,
+                train,
+                num_boost_round=self.n_estimators
+            )
 
-                model = lgb.train(
-                    parameters,
-                    train,
-                    num_boost_round=self.n_estimators
-                )
+            # Stores the model, predicts with the augmented features,
+            # and stores the model's feature importance
+            self.models_.append(model)
+            task_predictions[task] = model.predict(augmented)
+            self.feature_importances_[task] = model.feature_importance()
+            self.n_augmented_features_[task] = augmented.shape[1]
 
-                # Stores the model, predicts with the augmented features,
-                # and stores the model's feature importance
-                current_models.append(model)
-                current_predictions[task] = model.predict(augmented)
-                self.feature_importances_[task] = model.feature_importance()
-
-            self.models_ = current_models
-            task_predictions = current_predictions
-        
         return self
 
-    def predict(self, X):
+    def predict(self, user_params, select):
         # Predicting all tasks at once
 
         # Initially create empty array/dictionary
-        predictions = np.zeros((X.shape[0], self.n_tasks))
+        predictions = np.zeros((1, self.n_tasks))
         task_predictions = {}
 
-        # Loop through every task and pass it through previous function
-        for tasks in range(self.n_tasks):
-            selected_task = X[:, self.feature_indices_[tasks]]
-            augmented = self._augmented_features(selected_task, tasks, task_predictions)
+        # User selects a specific task and gives formatted features
+        # Augmented is made based on these
+        augmented = self._augmented_features(user_params, select, task_predictions)
 
-            expected_num = self.n_augmented_features_[tasks]
-            actual_num = augmented.shape[1]
-            # If expected count and actual count don't match then pad with zeros
-            # Sometimes only keeping values with a specific correlation can make the
-            # n_features not be the same as the original n_features
-            if actual_num < expected_num:
-                # Creates extra columns of zeros so errors don't happen
-                padding = np.zeros((selected_task.shape[0], expected_num - actual_num))
-                augmented = np.hstack([augmented, padding])
+        expected_num = self.n_augmented_features_[select]
+        actual_num = augmented.shape[1]
+        # If expected count and actual count don't match then pad with zeros
+        # Sometimes only keeping values with a specific correlation can make the
+        # n_features not be the same as the original n_features
+        if actual_num < expected_num:
+            # Creates extra columns of zeros so errors don't happen
+            padding = np.zeros((user_params, expected_num - actual_num))
+            augmented = np.hstack([augmented, padding])
 
-            predict = self.models_[tasks].predict(augmented)
-            predictions[:, tasks] = predict
-            task_predictions[tasks] = predict
+        predict = self.models_[select].predict(augmented)
+        predictions[:, select] = predict
+        task_predictions[select] = predict
         
         return predictions
     
     def train_model(self):
-        np.random.seed(42)
-        data = pd.read_excel('Fashion Data/DataPenjualanFashion.xlsx', sheet_name=None)
+            np.random.seed(42)
+            data = pd.read_excel('Fashion Data/DataPenjualanFashion.xlsx', sheet_name=None)
 
-        # Separating the data into dataframes
-        products = data['ProductItems']
-        sales_items = data['SalesItems']
-        pivot = data['Pivot Table']
+            # Separating the data into dataframes
+            products = data['ProductItems']
+            sales_items = data['SalesItems']
+            pivot = data['Pivot Table']
 
-        # Cleaning the data
-        # Reorganizing pivot
-        channel_data = {'Channels' : ['App Mobile', 'E-commerce'],
-                        'Totals Of Original Price' : [53952.79, 57167.84]}
+            # Cleaning the data
+            # Reorganizing pivot
+            channel_data = {'Channels' : ['App Mobile', 'E-commerce'],
+                            'Totals Of Original Price' : [53952.79, 57167.84]}
 
-        types_data = {'Type Product' : ['Dresses', 'Pants', 'Shoes', 'Sleepwear', 'T-Shirt', 'Grand Total'],
-                'Total Catalog Price' : [5298.44, 3959.36, 5236.03, 4933.21, 5511.98, 24939.02], 
-                'Total Cost Price' : [2917.77, 2149.76, 2908.44, 2785.75, 2962.69, 13724.41]}
+            types_data = {'Type Product' : ['Dresses', 'Pants', 'Shoes', 'Sleepwear', 'T-Shirt', 'Grand Total'],
+                    'Total Catalog Price' : [5298.44, 3959.36, 5236.03, 4933.21, 5511.98, 24939.02], 
+                    'Total Cost Price' : [2917.77, 2149.76, 2908.44, 2785.75, 2962.69, 13724.41]}
 
-        # Shows the money by the channels
-        channel = pd.DataFrame(channel_data)
+            # Shows the money by the channels
+            channel = pd.DataFrame(channel_data)
 
-        # Shows each category of clothing and their listed price and cost to make
-        types = pd.DataFrame(types_data)
+            # Shows each category of clothing and their listed price and cost to make
+            types = pd.DataFrame(types_data)
 
-        pivot = pivot.dropna()
-        pivot = pivot.drop(19)
-        # Pivot now just shows the categories and color of the clothing options
-        pivot = pivot.rename(columns={'Unnamed: 0' : 'Row Labels', 'Unnamed: 1' : 'Dresses', 'Unnamed: 2' : 'Pants', 
-                            'Unnamed: 3' : 'Shoes','Unnamed: 4' : 'Sleepwear', 'Unnamed: 5' : 'T-Shirts', 
-                            'Unnamed: 6' : 'Grand Total'})
+            pivot = pivot.dropna()
+            pivot = pivot.drop(19)
+            # Pivot now just shows the categories and color of the clothing options
+            pivot = pivot.rename(columns={'Unnamed: 0' : 'Row Labels', 'Unnamed: 1' : 'Dresses', 'Unnamed: 2' : 'Pants', 
+                                'Unnamed: 3' : 'Shoes','Unnamed: 4' : 'Sleepwear', 'Unnamed: 5' : 'T-Shirts', 
+                                'Unnamed: 6' : 'Grand Total'})
 
-        # Dataframe for the total cost to make the items and how much customers spent for the items
-        product_compare = sales_items.merge(
-            products,
-            left_index=True,
-            right_index=True
-        )
+            # Dataframe for the total cost to make the items and how much customers spent for the items
+            product_compare = sales_items.merge(
+                products,
+                left_index=True,
+                right_index=True
+            )
 
-        # Loading in synthetic data file
-        synthetic = pd.read_csv('Fashion Data/synthetic_data.csv')
+            # Save product_compare as a CSV file to generate synthetic data
+            #product_compare.to_csv('C:/Users/Tanis/Downloads/Europe-Fashion/Fashion Data/product_comparing.csv', index=False)
 
-        # Combine synthetic data with original data
-        product_compare = pd.concat([product_compare, synthetic], ignore_index=True)
+            # After making the CSV file, generate synthetic data, loading here.
+            synthetic = pd.read_csv('Fashion Data/synthetic_data.csv')
 
-        # Adds a column to show the product's cost to make
-        product_compare['cost_to_make'] = product_compare['cost_price'] * product_compare['quantity']
+            # Combine synthetic data with original data
+            product_compare = pd.concat([product_compare, synthetic], ignore_index=True)
 
-        # Adds a column to show profit
-        product_compare['profit'] = product_compare['item_total'] - product_compare['cost_to_make']
+            # Adds a column to show the product's cost to make
+            product_compare['cost_to_make'] = product_compare['cost_price'] * product_compare['quantity']
 
-        #Adds a column to show profit margin
-        product_compare['profit_margin'] = (product_compare['unit_price'] - product_compare['cost_price']) / product_compare['unit_price']
+            # Adds a column to show profit
+            product_compare['profit'] = product_compare['item_total'] - product_compare['cost_to_make']
 
-        # Categorical variables for encoding
-        categorical = ['category', 'color', 'size', 'channel']
+            #Adds a column to show profit margin
+            product_compare['profit_margin'] = (product_compare['unit_price'] - product_compare['cost_price']) / product_compare['unit_price']
 
-        categorical_encoding = {}
+            # Categorical variables for encoding
+            categorical = ['category', 'color', 'size', 'channel']
 
-        for col in categorical:
-            label = LabelEncoder()
-            # In the initial dataframe, replace every categorical value with the encoded one
-            product_compare[col] = label.fit_transform(product_compare[col])
-            # Store the encoders used for every categorical variable
-            categorical_encoding[col] = label
+            categorical_encoding = {}
 
-        X = product_compare[['category', 'color', 'size', 'catalog_price', 'channel', 'original_price', 'unit_price']].values
-        y = product_compare[['profit_margin', 'quantity', 'item_total']].values
-        scaler = StandardScaler()
+            for col in categorical:
+                label = LabelEncoder()
+                # In the initial dataframe, replace every categorical value with the encoded one
+                product_compare[col] = label.fit_transform(product_compare[col])
+                # Store the encoders used for every categorical variable
+                categorical_encoding[col] = label
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
-        )
-        
-        # These indices skew the data negatively
-        y_train = np.delete(y_train, [291, 263], axis=0)
-        X_train = np.delete(X_train, [291, 263], axis=0)
+            X = product_compare[['category', 'color', 'size', 'catalog_price', 'channel', 'original_price', 'unit_price']].values
+            y = product_compare[['profit_margin', 'quantity', 'item_total']].values
+            
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=0.2, random_state=42
+            )
 
-        X_train = scaler.fit_transform(X_train)
-        X_test = scaler.transform(X_test)
+            # These indices skew the data negatively
+            mask = np.ones(len(X_train), dtype=bool)
+            mask[[291, 263]] = False
+            y_train = y_train[mask]
+            X_train = X_train[mask]
 
-        model = MTGBM(
-            n_tasks=3,
-            n_estimators=100,
-            learning_rate=0.1,
-            max_depth=6,
-            share_embeddings=True,
-            verbose=-1,
-            random_state=42
-        )
-        #['category', 'color', 'size', 'catalog_price', 'channel', 'original_price', 'unit_price']
-        # Predicting profit margin for the first test
-        # Predict how much quantity bought will change if unit_price changes
-        # Predict item total based on original price and channel
-        # Need to handle correlation
-        feature_indices = {
-            0: [0, 1, 2, 3],  # Features for profit margin    
-            1: [0, 1, 2, 5, 6],   # Features for quantity     
-            2: [0, 1, 2, 4, 5]    # Features for item_total
-        }
+            #['category', 'color', 'size', 'catalog_price', 'channel', 'original_price', 'unit_price']
+            # Predicting profit margin for the first test
+            # Predict how much quantity bought will change if unit_price changes
+            # Predict item total based on original price and channel
+            # Need to handle correlation
+            feature_indices = {
+                0: [0, 1, 2, 3],  # Features for profit margin    
+                1: [0, 1, 2, 3, 5],   # Features for quantity     
+                2: [0, 1, 2, 3, 5]    # Features for item_total
+            }
 
-        model.fit(X_train, y_train, feature_indices)
+            model = MTGBM(
+                n_tasks=3,
+                n_estimators=50,
+                learning_rate=0.1,
+                max_depth=5,
+                verbose=-1,
+                random_state=42
+            )
 
-        return model, feature_indices
+            model.fit(X_train, y_train, feature_indices)
+
+            return model
     
-    def clothing_predict(self, user_params, user_selections):
-        model, feature_indices = self.train_model
+    def clothing_predict(self, user_selection):
+        # Fix this later, do not train model everytime
+        model = self.train_model()
 
         task_names = ['profit_margin', 'quantity', 'item_total']
 
-        for selection in user_selections:
-            pass
+        '''
+        user_selection is a number. 0, 1, 2 depending on which task
+
+        user_params is the specific parameters for the task the user gave
+        it is in a 2d list
+
+        need to encode categorical variables
+        '''
+        pred = model.predict(user_selection)
+        print(pred)
+
 
 
 

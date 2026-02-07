@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clothing AI Uploader</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      color: white;
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 2.5rem;
+    }
+
+    .subtitle {
+      color: rgba(255, 255, 255, 0.9);
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 1.1rem;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .card h2 {
+      color: #333;
+      margin-bottom: 20px;
+      font-size: 1.5rem;
+    }
+
+    input[type="file"] {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      border: 2px dashed #667eea;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    input[type="file"]:hover {
+      border-color: #764ba2;
+      background: #f8f9ff;
+    }
+
+    .preview-container {
+      width: 100%;
+      max-height: 400px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    #imagePreview {
+      display: none;
+      max-width: 100%;
+      max-height: 400px;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .results, .status {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f8f9ff;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+      min-height: 50px;
+      display: none;
+    }
+
+    .results.show, .status.show {
+      display: block;
+    }
+
+    .results strong, .status strong {
+      color: #667eea;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 500;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: border-color 0.3s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .error {
+      background: #fee;
+      border-left-color: #f44;
+      color: #c00;
+    }
+
+    .success {
+      background: #efe;
+      border-left-color: #4c4;
+      color: #060;
+    }
+
+    .loading {
+      display: inline-block;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧵 AI Clothing Analyzer</h1>
+    <p class="subtitle">Upload a clothing image → We classify it → You fill in business details → Magic happens ✨</p>
+
+    <!-- Image Upload Section -->
+    <div class="card">
+      <h2>1. Upload Clothing Image</h2>
+      <input type="file" id="imageUpload" accept="image/*" />
+      <div class="preview-container">
+        <img id="imagePreview" alt="Image preview" />
+      </div>
+      <button id="analyzeBtn">Analyze Image</button>
+      <div id="analysisResults" class="results"></div>
+    </div>
+
+    <!-- Business Info Form -->
+    <div class="card hidden" id="businessFormCard">
+      <h2>2. Enter Business Details</h2>
+      <form id="businessForm">
+        <div class="form-group">
+          <label for="size">Size</label>
+          <input type="text" id="size" placeholder="e.g. S, M, L, XL" required />
+        </div>
+
+        <div class="form-group">
+          <label for="catalogPrice">Catalog Price ($)</label>
+          <input type="number" id="catalogPrice" step="0.01" placeholder="e.g. 29.99" required />
+        </div>
+
+        <div class="form-group">
+          <label for="channel">Sales Channel</label>
+          <select id="channel" required>
+            <option value="">Select channel</option>
+            <option value="online">Online</option>
+            <option value="retail">Retail</option>
+            <option value="wholesale">Wholesale</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="originalPrice">Original Price ($)</label>
+          <input type="number" id="originalPrice" step="0.01" placeholder="e.g. 39.99" required />
+        </div>
+
+        <div class="form-group">
+          <label for="unitPrice">Unit Cost ($)</label>
+          <input type="number" id="unitPrice" step="0.01" placeholder="e.g. 15.00" required />
+        </div>
+
+        <button type="submit">Send to Backend 🚀</button>
+      </form>
+      <div id="submissionStatus" class="status"></div>
+    </div>
+  </div>
+
+  <script>
+    const imageUpload = document.getElementById("imageUpload");
+    const imagePreview = document.getElementById("imagePreview");
+    const analyzeBtn = document.getElementById("analyzeBtn");
+    const analysisResults = document.getElementById("analysisResults");
+    const businessFormCard = document.getElementById("businessFormCard");
+    const businessForm = document.getElementById("businessForm");
+    const submissionStatus = document.getElementById("submissionStatus");
+
+    let detectedData = {};
+
+    // Handle image preview
+    imageUpload.addEventListener("change", () => {
+      const file = imageUpload.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = () => {
+        imagePreview.src = reader.result;
+        imagePreview.style.display = "block";
+      };
+      reader.readAsDataURL(file);
+      
+      // Reset analysis results when new image is selected
+      analysisResults.classList.remove("show", "error", "success");
+      businessFormCard.classList.add("hidden");
+    });
+
+    // Handle image analysis
+    analyzeBtn.addEventListener("click", async () => {
+      const file = imageUpload.files[0];
+      if (!file) {
+        alert("Please upload an image first");
+        return;
+      }
+
+      // Disable button and show loading state
+      analyzeBtn.disabled = true;
+      analysisResults.innerHTML = '<span class="loading">Analyzing image... ⏳</span>';
+      analysisResults.classList.add("show");
+      analysisResults.classList.remove("error", "success");
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const res = await fetch("http://localhost:8000/analyze-image", {
+          method: "POST",
+          body: formData
+        });
+
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+
+        const data = await res.json();
+        detectedData = data;
+
+        analysisResults.innerHTML = `
+          <strong>Detected Category:</strong> ${data.category} <br />
+          <strong>Detected Color:</strong> ${data.color}
+        `;
+        analysisResults.classList.add("success");
+
+        businessFormCard.classList.remove("hidden");
+      } catch (err) {
+        console.error("Analysis error:", err);
+        analysisResults.innerHTML = `Error analyzing image 😔<br><small>${err.message}</small>`;
+        analysisResults.classList.add("error");
+      } finally {
+        analyzeBtn.disabled = false;
+      }
+    });
+
+    // Handle form submission
+    businessForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const payload = {
+        category: detectedData.category,
+        color: detectedData.color,
+        size: document.getElementById("size").value,
+        catalog_price: parseFloat(document.getElementById("catalogPrice").value),
+        channel: document.getElementById("channel").value,
+        original_price: parseFloat(document.getElementById("originalPrice").value),
+        unit_price: parseFloat(document.getElementById("unitPrice").value)
+      };
+
+      // Disable submit button
+      const submitBtn = businessForm.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+
+      submissionStatus.innerHTML = '<span class="loading">Sending data to backend... 🧠</span>';
+      submissionStatus.classList.add("show");
+      submissionStatus.classList.remove("error", "success");
+
+      try {
+        const res = await fetch("http://localhost:8000/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+
+        const result = await res.json();
+        submissionStatus.innerHTML = `
+          <strong>✅ Prediction Complete!</strong><br>
+          Result: <code>${JSON.stringify(result, null, 2)}</code>
+        `;
+        submissionStatus.classList.add("success");
+      } catch (err) {
+        console.error("Prediction error:", err);
+        submissionStatus.innerHTML = `Backend error 😔<br><small>${err.message}</small>`;
+        submissionStatus.classList.add("error");
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

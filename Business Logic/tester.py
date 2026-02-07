@@ -198,6 +198,7 @@ class MTGBM(BaseEstimator, RegressorMixin):
         self.n_augmented_features_ = {}
 
         for task in range(self.n_tasks):
+            print(f'task:{task}')
             # Depending on the task, different features will be used
             specific_task = X[:, self.feature_indices_[task]]
             # Gets augmented features based on the current task, feature_indices, and predictions
@@ -391,9 +392,20 @@ def clothing_predict():
         )
 
         model.fit(X_train, y_train, feature_indices)
+        
+        importance = model.feature_importances_
+        for feature, score in importance.items():
+            print(f'Feature{feature}, Score: {score}')
 
+        # Plot
+        plt.bar(range(len(importance)), importance)
+        plt.xlabel('Feature')
+        plt.ylabel('Importance')
+        plt.show()
+        print(f'x_test:{len(X_test[0])}')
         pred = model.predict(X_test)
-
+        print(f'type:{type(pred)}')
+        '''
         # 2. Setup Plotting Data
         # Combine into a DataFrame for easier Seaborn handling
         print(len(pred.ravel()))
@@ -412,7 +424,7 @@ def clothing_predict():
 
         plt.title("Model Performance: Actual vs Predicted Distribution")
         plt.show()
-
+        '''
         # The things that will be predicted
         task_names = ['profit_margin', 'quantity', 'item_total']
 
@@ -423,7 +435,8 @@ def clothing_predict():
 
             mse = mean_absolute_error(y_true, y_task_pred)
             print(f"Mean Squared Error: {mse}")
-            
+        
+
         
         # Predict if the product will sell at full price (classification)
         product_compare['sold_full_price'] = (

@@ -1,14 +1,3 @@
-'''
-This program is about using FastAPI to handle user requests
-
-
-https://chatgpt.com/c/695ae09e-6878-832b-a4c9-fd86ef2c788f
-
-https://chatgpt.com/c/695ae09e-6878-832b-a4c9-fd86ef2c788f
-
-https://claude.ai/chat/65321bb6-5038-4666-bd70-cb27ec73ca83
-'''
-
 from datetime import datetime, timedelta
 import uuid
 from fastapi import Body, FastAPI, File, HTTPException, UploadFile
@@ -21,7 +10,7 @@ import numpy as np
 import pickle
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 # Loading in the clothing predict model with error handling
 try: 
@@ -102,30 +91,32 @@ def remove_expired_images():
         if upload >= upload + timedelta(hours=1):
             image_storage.pop(upload)
 
-
-@app.post("/submit")
+@app.post("/predict")
 async def get_user_params(
-    data : ClothingParameters, 
+    matrix: List[List[ClothingParameters]], 
     file : UploadFile = File(...), 
     select : int = Body(...)
 ):
     try:
-        outputs = await image_model_output(file)
-
+        category, color = await image_model_output(file)
+        numerical_outputs = []
         # Combine the input parameters with calculated values
-        user_params = [
-            data.size or '',
-            data.catalog_price or 0,
-            data.unit_price or 0,
-            data.original_price or 0,
-            data.channel or '',
-            outputs
-        ]
-        # Predict with the other model
-        result = stats_model.clothing_predict([user_params, select])
-        return result.tolist()
+        for data in matrix:
+            user_params = [
+                category,
+                color,
+                data.size or '',
+                data.catalog_price or 0,
+                data.channel or '',
+                data.original_price or 0,
+                data.unit_price or 0
+            ]
+            # Predict with the other model
+            result = stats_model.clothing_predict([user_params, select])
+            numerical_outputs.append(result.tolist())
+        
+        return category, color, numerical_outputs
     except Exception as e:
         raise HTTPException(status_code=500, detail="Sorry. Prediction Failed")
-
 
 
