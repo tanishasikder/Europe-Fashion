@@ -14,8 +14,9 @@ from typing import Optional, List
 
 # Loading in the clothing predict model with error handling
 try: 
+    # Load in the custom model made instead of this
     image_model = models.vgg16(pretrained=False)
-    image_model.load_state_dict(torch.load("image_extraction_model"), map_location='cpu') 
+    image_model.load_state_dict(torch.load("image_extraction_model.pth", map_location='cpu'))
     image_model.eval()
 except Exception as e:
     raise
