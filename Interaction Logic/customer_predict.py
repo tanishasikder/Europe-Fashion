@@ -1,3 +1,11 @@
+'''
+This program is about using FastAPI to handle user requests
+
+https://chatgpt.com/c/695ae09e-6878-832b-a4c9-fd86ef2c788f
+
+https://claude.ai/chat/65321bb6-5038-4666-bd70-cb27ec73ca83
+'''
+
 from datetime import datetime, timedelta
 import uuid
 from fastapi import Body, FastAPI, File, HTTPException, UploadFile
@@ -11,11 +19,20 @@ import pickle
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
+from pathlib import Path
+import sys
+
+# Makes python looks at the parent root directories to find the model
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+# Loading in the custom model
+from business_logic.image_extraction import CNN
 
 # Loading in the clothing predict model with error handling
 try: 
-    # Load in the custom model made instead of this
-    image_model = models.vgg16(pretrained=False)
+    image_model = CNN()
+    # Loading in custom weights
     image_model.load_state_dict(torch.load("image_extraction_model.pth", map_location='cpu'))
     image_model.eval()
 except Exception as e:
