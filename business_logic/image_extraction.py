@@ -51,7 +51,7 @@ def get_valid_image(path):
 
 # CNN class to classify image features
 class CNN(nn.Module):
-    def __init__(self, color_names, type_names, device):
+    def __init__(self, color_names, type_names):
         super().__init__()
         # Load in the pretrained resnet model
         model = models.vgg16(pretrained=True)
@@ -171,7 +171,6 @@ if __name__ == '__main__':
                                             data_transforms[x],
                                             is_valid_file = get_valid_image)
                                             for x in sets}
-
         
     # Loading the data in batches. Separate dataloaders for color and type tests
     data_loaders = {

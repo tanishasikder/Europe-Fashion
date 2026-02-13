@@ -3,6 +3,7 @@ import pandas as pd
 import lightgbm as lgb
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.preprocessing import LabelEncoder
+import pickle
 from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import train_test_split
 from typing import List, Dict, Optional, Tuple
@@ -279,26 +280,13 @@ class MTGBM(BaseEstimator, RegressorMixin):
 
             model.fit(X_train, y_train, feature_indices)
 
+            with open("model.pkl", "wb") as f:
+                pickle.dump(model, f)
+
             return model
-    
-    def clothing_predict(self, user_selection):
-        # Fix this later, do not train model everytime
-        model = self.train_model()
 
-        task_names = ['profit_margin', 'quantity', 'item_total']
-
-        '''
-        user_selection is a number. 0, 1, 2 depending on which task
-
-        user_params is the specific parameters for the task the user gave
-        it is in a 2d list
-
-        need to encode categorical variables
-        '''
-        pred = model.predict(user_selection)
-        print(pred)
-
-
+mtgbm = MTGBM()
+mtgbm.train_model()
 
 
 

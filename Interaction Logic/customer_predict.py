@@ -7,6 +7,7 @@ https://claude.ai/chat/65321bb6-5038-4666-bd70-cb27ec73ca83
 '''
 
 from datetime import datetime, timedelta
+import os
 import uuid
 from fastapi import Body, FastAPI, File, HTTPException, UploadFile
 import torch
@@ -29,18 +30,9 @@ sys.path.insert(0, str(project_root))
 # Loading in the custom model
 from business_logic.image_extraction import CNN
 
-# Loading in the clothing predict model with error handling
-try: 
-    image_model = CNN()
-    # Loading in custom weights
-    image_model.load_state_dict(torch.load("image_extraction_model.pth", map_location='cpu'))
-    image_model.eval()
-except Exception as e:
-    raise
-
 # Loading in the stats predict model with error handling
 try:
-    with open('sales_predict.pkl', 'rb') as f:
+    with open('C:/Users/Tanis/Downloads/Europe-Fashion/models/model.pkl', 'rb') as f:
         stats_model = pickle.load(f)
 except Exception as e:
     raise
@@ -86,6 +78,20 @@ async def image_model_output(file: UploadFile) -> Image.Image:
     # Wait for the file to be read
     contents = await file.read()
     try:
+        path = 'Fashion_Images/train'
+        files = os.listdir(path)
+
+        color = []
+        category = []
+        color = [file[:file.index('_')] for file in files]
+        category = [file[file.index('_')+1:] for file in files]
+
+        # Loading in the clothing predict model with error handling 
+        image_model = CNN(color, category)
+        # Loading in custom weights
+        image_model.load_state_dict(torch.load("image_extraction_model.pth", map_location='cpu'))
+        image_model.eval()
+        
         # Extract the image from content
         image = Image.open(io.BytesIO(contents)).convert("RGB")
         # Create image ID
