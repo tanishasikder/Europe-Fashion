@@ -1,3 +1,22 @@
+SEPARATE THE TRAINING FROM THE ACTUAL MODEL ARCHITECTURE WITH THE SKILEARN PYTHON MODEL
+AND THEN YOU GOTTA DEPLOY THIS USE DOCKER AND OTHER stuff
+
+https://machinelearningmastery.com/a-practical-guide-to-deploying-machine-learning-models/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 So right now what the model does is that it, it's in like a training, testing kind of phase. 
 So basically, like, with the data set, um, you make a model and with the data set, you basically 
 train the model. And then, like, you just have a bunch of preset inputs to get some preset outputs, 
