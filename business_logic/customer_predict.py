@@ -8,7 +8,6 @@ import torchvision.models as models
 from PIL import Image
 import io
 import numpy as np
-import pickle
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
@@ -101,13 +100,14 @@ async def image_model_output(file: UploadFile) -> Image.Image:
     
 def remove_expired_images():
     # Remove images after an hour
-    for key, data in image_storage:
+    for key, data in image_storage.items():
         upload = image_storage[key]['uploaded']
         if upload >= upload + timedelta(hours=1):
             image_storage.pop(upload)
 
 @app.post("/predict")
 async def get_user_params(
+    # 2D list since users can do this multiple times
     matrix: List[List[ClothingParameters]], 
     file : UploadFile = File(...), 
     select : int = Body(...)
