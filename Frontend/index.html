@@ -13,7 +13,7 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: rgb(92, 228, 255);
       min-height: 100vh;
       padding: 20px;
     }
@@ -41,6 +41,7 @@
       background: white;
       border-radius: 12px;
       padding: 30px;
+      text-align: center;
       margin-bottom: 20px;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     }
@@ -89,7 +90,7 @@
     button {
       width: 100%;
       padding: 14px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: rgb(200, 97, 255);
       color: white;
       border: none;
       border-radius: 8px;
@@ -122,6 +123,7 @@
       border-left: 4px solid #667eea;
       min-height: 50px;
       display: none;
+      text-align: left;
     }
 
     .results.show, .status.show {
@@ -145,6 +147,7 @@
       margin-bottom: 8px;
       color: #333;
       font-weight: 500;
+      text-align: left;
     }
 
     .form-group input,
@@ -184,12 +187,19 @@
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
     }
+
+    pre {
+      white-space: pre-wrap;
+      word-break: break-all;
+      font-size: 0.85rem;
+      margin-top: 8px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🧵 AI Clothing Analyzer</h1>
-    <p class="subtitle">Upload a clothing image → We classify it → You fill in business details → Magic happens ✨</p>
+    <h1>AI Clothing Analyzer</h1>
+    <p class="subtitle">Get Consumer Predictions for Products</p>
 
     <!-- Image Upload Section -->
     <div class="card">
@@ -198,12 +208,10 @@
       <div class="preview-container">
         <img id="imagePreview" alt="Image preview" />
       </div>
-      <button id="analyzeBtn">Analyze Image</button>
-      <div id="analysisResults" class="results"></div>
     </div>
 
     <!-- Business Info Form -->
-    <div class="card hidden" id="businessFormCard">
+    <div class="card" id="businessFormCard">
       <h2>2. Enter Business Details</h2>
       <form id="businessForm">
         <div class="form-group">
@@ -236,7 +244,12 @@
           <input type="number" id="unitPrice" step="0.01" placeholder="e.g. 15.00" required />
         </div>
 
-        <button type="submit">Send to Backend 🚀</button>
+        <div class="form-group">
+          <label for="selectIndex">Select Index</label>
+          <input type="number" id="selectIndex" placeholder="e.g. 0" value="0" required />
+        </div>
+
+        <button type="submit" id="submitBtn">Evaluate</button>
       </form>
       <div id="submissionStatus" class="status"></div>
     </div>
@@ -245,84 +258,38 @@
   <script>
     const imageUpload = document.getElementById("imageUpload");
     const imagePreview = document.getElementById("imagePreview");
-    const analyzeBtn = document.getElementById("analyzeBtn");
-    const analysisResults = document.getElementById("analysisResults");
-    const businessFormCard = document.getElementById("businessFormCard");
     const businessForm = document.getElementById("businessForm");
     const submissionStatus = document.getElementById("submissionStatus");
-
-    let detectedData = {};
+    const submitBtn = document.getElementById("submitBtn");
 
     // Handle image preview
     imageUpload.addEventListener("change", () => {
       const file = imageUpload.files[0];
       if (!file) return;
-      
+
       const reader = new FileReader();
       reader.onload = () => {
         imagePreview.src = reader.result;
         imagePreview.style.display = "block";
       };
       reader.readAsDataURL(file);
-      
-      // Reset analysis results when new image is selected
-      analysisResults.classList.remove("show", "error", "success");
-      businessFormCard.classList.add("hidden");
+
+      // Reset status when new image is selected
+      submissionStatus.classList.remove("show", "error", "success");
     });
 
-    // Handle image analysis
-    analyzeBtn.addEventListener("click", async () => {
-      const file = imageUpload.files[0];
-      if (!file) {
-        alert("Please upload an image first");
-        return;
-      }
-
-      // Disable button and show loading state
-      analyzeBtn.disabled = true;
-      analysisResults.innerHTML = '<span class="loading">Analyzing image... ⏳</span>';
-      analysisResults.classList.add("show");
-      analysisResults.classList.remove("error", "success");
-
-      const formData = new FormData();
-      formData.append("file", file);
-
-      try {
-        const res = await fetch("http://localhost:8000/analyze-image", {
-          method: "POST",
-          body: formData
-        });
-
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-
-        const data = await res.json();
-        detectedData = data;
-
-        analysisResults.innerHTML = `
-          <strong>Detected Category:</strong> ${data.category} <br />
-          <strong>Detected Color:</strong> ${data.color}
-        `;
-        analysisResults.classList.add("success");
-
-        businessFormCard.classList.remove("hidden");
-      } catch (err) {
-        console.error("Analysis error:", err);
-        analysisResults.innerHTML = `Error analyzing image 😔<br><small>${err.message}</small>`;
-        analysisResults.classList.add("error");
-      } finally {
-        analyzeBtn.disabled = false;
-      }
-    });
-
-    // Handle form submission
+    // Handle form submission — sends image + params together to /predict
     businessForm.addEventListener("submit", async (e) => {
       e.preventDefault();
 
-      const payload = {
-        category: detectedData.category,
-        color: detectedData.color,
+      const file = imageUpload.files[0];
+      if (!file) {
+        alert("Please upload a clothing image first.");
+        return;
+      }
+
+      // Build the ClothingParameters object (wrapped in a 2D matrix as the backend expects)
+      const params = {
         size: document.getElementById("size").value,
         catalog_price: parseFloat(document.getElementById("catalogPrice").value),
         channel: document.getElementById("channel").value,
@@ -330,10 +297,22 @@
         unit_price: parseFloat(document.getElementById("unitPrice").value)
       };
 
-      // Disable submit button
-      const submitBtn = businessForm.querySelector('button[type="submit"]');
-      submitBtn.disabled = true;
+      const select = parseInt(document.getElementById("selectIndex").value, 10);
 
+      // FastAPI /predict expects:
+      //   - file: UploadFile  (multipart)
+      //   - matrix: List[List[ClothingParameters]]  (JSON body field)
+      //   - select: int  (JSON body field)
+      //
+      // FastAPI's Body() fields alongside a File() must be sent as multipart form data,
+      // with JSON-encoded strings for the complex fields.
+      const formData = new FormData();
+      formData.append("file", file);
+      // matrix is a 2D list — one row with one ClothingParameters object
+      formData.append("matrix", JSON.stringify([[params]]));
+      formData.append("select", select);
+
+      submitBtn.disabled = true;
       submissionStatus.innerHTML = '<span class="loading">Sending data to backend... 🧠</span>';
       submissionStatus.classList.add("show");
       submissionStatus.classList.remove("error", "success");
@@ -341,23 +320,30 @@
       try {
         const res = await fetch("http://localhost:8000/predict", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          body: formData
         });
 
         if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
+          const errText = await res.text();
+          throw new Error(`HTTP ${res.status}: ${errText}`);
         }
 
         const result = await res.json();
+
+        // Backend returns: [category, color, numerical_outputs]
+        const [category, color, numerical_outputs] = result;
+
         submissionStatus.innerHTML = `
-          <strong>✅ Prediction Complete!</strong><br>
-          Result: <code>${JSON.stringify(result, null, 2)}</code>
+          <strong>Prediction Complete ✅</strong><br><br>
+          <strong>Detected Category:</strong> ${category}<br>
+          <strong>Detected Color:</strong> ${color}<br><br>
+          <strong>Prediction Output:</strong>
+          <pre>${JSON.stringify(numerical_outputs, null, 2)}</pre>
         `;
         submissionStatus.classList.add("success");
       } catch (err) {
         console.error("Prediction error:", err);
-        submissionStatus.innerHTML = `Backend error 😔<br><small>${err.message}</small>`;
+        submissionStatus.innerHTML = `<strong>Error with Prediction</strong><br><small>${err.message}</small>`;
         submissionStatus.classList.add("error");
       } finally {
         submitBtn.disabled = false;

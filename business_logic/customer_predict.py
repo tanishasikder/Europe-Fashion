@@ -16,17 +16,13 @@ import sys
 from joblib import load
 
 # Loading in the custom model
-from image_extraction import CNN
+from business_logic.image_extraction import CNN
+from business_logic.sales_predict import MTGBM
 
 # Makes python looks at the parent root directories to find the model
-DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-path = os.path.join(DIR, "business_logic", "stats_model.joblib")
-
-try:
-    stats_model = load(path)
-except Exception as e:
-    raise
-
+parent = Path(__file__).parent
+path = parent / "stats_model.joblib"
+stats_model = load(path)
 app = FastAPI()
 
 # Temporary storage for image features
@@ -79,7 +75,8 @@ async def image_model_output(file: UploadFile) -> Image.Image:
         # Loading in the clothing predict model with error handling 
         image_model = CNN(color, category)
         # Loading in custom weights
-        image_model.load_state_dict(torch.load("image_extraction_model.pth", map_location='cpu'))
+        torch_path = parent / "image_extraction_model.pth"
+        image_model.load_state_dict(torch.load(torch_path, map_location='cpu'))
         image_model.eval()
         
         # Extract the image from content
