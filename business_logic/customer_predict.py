@@ -14,6 +14,12 @@ from typing import Optional, List
 from pathlib import Path
 import sys
 from joblib import load
+from fastapi import APIRouter, HTTPException
+
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+
+from interaction_logic.rag import get_rag_response
+router = APIRouter()
 
 # Loading in the custom model
 from business_logic.image_extraction import CNN
@@ -57,6 +63,24 @@ data_transforms = transforms.Compose([
     transforms.Normalize(mean, std)
 ])
 
+def initialize_image_model():
+    path = 'Fashion_Images/train'
+    files = os.listdir(path)
+
+    color = []
+    category = []
+    color = [file[:file.index('_')] for file in files]
+    category = [file[file.index('_')+1:] for file in files]
+
+    # Loading in the clothing predict model with error handling 
+    image_model = CNN(color, category)
+    # Loading in custom weights
+    torch_path = parent / "image_extraction_model.pth"
+    image_model.load_state_dict(torch.load(torch_path, map_location='cpu'))
+    image_model.eval()
+
+    return image_model
+
 async def image_model_output(file: UploadFile) -> Image.Image:
     # Make sure the file is an image
     if not file.content_type.startswith('image/'):
@@ -64,21 +88,8 @@ async def image_model_output(file: UploadFile) -> Image.Image:
     # Wait for the file to be read
     contents = await file.read()
     try:
-        path = 'Fashion_Images/train'
-        files = os.listdir(path)
-
-        color = []
-        category = []
-        color = [file[:file.index('_')] for file in files]
-        category = [file[file.index('_')+1:] for file in files]
-
-        # Loading in the clothing predict model with error handling 
-        image_model = CNN(color, category)
-        # Loading in custom weights
-        torch_path = parent / "image_extraction_model.pth"
-        image_model.load_state_dict(torch.load(torch_path, map_location='cpu'))
-        image_model.eval()
-        
+        remove_expired_images()
+        image_model = initialize_image_model()
         # Extract the image from content
         image = Image.open(io.BytesIO(contents)).convert("RGB")
         # Create image ID
@@ -86,12 +97,13 @@ async def image_model_output(file: UploadFile) -> Image.Image:
         image = data_transforms(image).unsqueeze(0)
         # Perform inference
         with torch.no_grad():
-            predictions = image_model(image)
+            color, cloth_type = image_model(image)
 
         image_storage[image_id] = {
-            'features': predictions,
+            'features': [color, cloth_type],
             'uploaded': datetime.now()
         }
+        return color, cloth_type
     except Exception as e:
         raise HTTPException(stats_code=500, detail="Sorry. Prediction Failed")
     
@@ -102,33 +114,59 @@ def remove_expired_images():
         if upload >= upload + timedelta(hours=1):
             image_storage.pop(upload)
 
-@app.post("/predict")
+@app.post("/files")
 async def get_user_params(
+    # 2D list since users can do this multiple times
+    matrix: List[List[ClothingParameters]],
+    select : int,
+    color : str, 
+    category : str
+):
+    try:
+        numerical_outputs = []
+        # Combine the input parameters with calculated values
+        for data in matrix:
+            user_params = {
+                'category' : category,
+                'color' : color,
+                'size' : data.size or '',
+                'catalog price' : data.catalog_price or 0,
+                'channel' : data.channel or '',
+                'original price' : data.original_price or 0,
+                'unit price' : data.unit_price or 0
+            }
+            # Predict with the other model
+            result = stats_model.clothing_predict([user_params, select])
+            numerical_outputs.append(result.tolist())
+        return numerical_outputs
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Sorry. Prediction Failed")
+
+@router.get("/query/")
+async def query_rag_system(query: str):
+    try:
+        response = await get_rag_response(query)
+        return {"query": query, "response": response}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/predict")
+async def initialize_preds(
     # 2D list since users can do this multiple times
     matrix: List[List[ClothingParameters]], 
     file : UploadFile = File(...), 
     select : int = Body(...)
 ):
-    try:
-        category, color = await image_model_output(file)
-        numerical_outputs = []
-        # Combine the input parameters with calculated values
-        for data in matrix:
-            user_params = [
-                category,
-                color,
-                data.size or '',
-                data.catalog_price or 0,
-                data.channel or '',
-                data.original_price or 0,
-                data.unit_price or 0
-            ]
-            # Predict with the other model
-            result = stats_model.clothing_predict([user_params, select])
-            numerical_outputs.append(result.tolist())
-        
-        return category, color, numerical_outputs
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Sorry. Prediction Failed")
-
-
+    color, category = await image_model_output(file)
+    numerical_outputs = get_user_params(matrix, select, color, category)
+    
+    query = (f"Using the following user parameters {numerical_outputs}"
+             "Generate summary reports for how the clothing will do in"
+             "the market. Predict profit margin, quantity, and item total"
+             "All kinds of predictions use clothing type, color, size"
+             "Only quantity and item total use original price alongside"
+             "the other predictors")
+    
+    response = query_rag_system(query)
+    
+    return response
