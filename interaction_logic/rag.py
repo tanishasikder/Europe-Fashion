@@ -8,19 +8,22 @@ from langchain.tools import tool
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.agents import create_agent
+from dotenv import load_dotenv
 
 def make_agent():
+    load_dotenv()
     # Getting LangChain to log everything
-    os.environ["LANGSMITH_TRACING"] = "true"
+    langsmith = os.getenv("LANGSMITH_TRACING")
 
     # Getting API key
-    os.environ["LANGSMITH_API_KEY"] = getpass.getpass()
+    huggingface = os.getenv("HUGGINGFACE_API_KEY")
 
     model = init_chat_model(
         "microsoft/Phi-3-mini-4k-instruct",
         model_provider="huggingface",
         temperature=0.7,
         max_tokens=1023,
+        api_key=huggingface
     )
 
     # Initializing embeddings model
