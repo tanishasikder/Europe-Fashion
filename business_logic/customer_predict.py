@@ -31,6 +31,12 @@ path = parent / "stats_model.joblib"
 stats_model = load(path)
 app = FastAPI()
 
+# Basic health check to ensure server is functioning
+@app.get("/health")
+def root():
+    return {"status" : "OK"}
+
+
 # Temporary storage for image features
 # Store image_id, image characteristics, when uploaded
 # (so it can expire after an hour) for predictions
@@ -46,11 +52,10 @@ app.add_middleware(
 
 # Initial parameters to predict with later on
 class ClothingParameters(BaseModel):
-    size : Optional[str] = None
-    catalog_price : Optional[float] = None
-    channel : Optional[str] = None
-    original_price : Optional[float] = None
-    unit_price : Optional[float] = None
+    size : str = None
+    catalog_price : float = None
+    channel : str = None
+    original_price : float = None
 
 mean = np.array([0.485, 0.456, 0.406])
 std = np.array([0.229, 0.224, 0.225])
@@ -63,15 +68,16 @@ data_transforms = transforms.Compose([
     transforms.Normalize(mean, std)
 ])
 
-def initialize_image_model():
+def get_color_category():
     path = 'Fashion_Images/train'
     files = os.listdir(path)
-
-    color = []
-    category = []
     color = [file[:file.index('_')] for file in files]
     category = [file[file.index('_')+1:] for file in files]
 
+    return color, category
+
+def initialize_image_model():
+    color, category = get_color_category()
     # Loading in the clothing predict model with error handling 
     image_model = CNN(color, category)
     # Loading in custom weights
@@ -114,10 +120,41 @@ def remove_expired_images():
         if upload >= upload + timedelta(hours=1):
             image_storage.pop(upload)
 
+# Defines dictionary for acceptable ranges and types
+def acceptable_values():
+    template = {
+        'size' : {'values': { 'XS', 'S', 'M', 'L', 'XL'}, 
+                  'types': str},
+        'catalog price' : {'values': range(5, 1000),
+                           'types': (int, float)},
+        'channel' : {'values': {'App Mobile', 'E-Commerce'}, 
+                     'types': str},
+        'original price' : {'values': range(5, 1000), 
+                            'types': (int, float)}
+    }
+
+    return template
+
+# Checks if the user typed in acceptable parameters
+def verify_inputs(matrix: List[ClothingParameters]):
+    if '' in matrix:
+        return 'Please Fill Out All Fields'
+
+    template = acceptable_values()
+
+    for input in matrix:
+        valid = template[input]
+        if matrix[input] not in valid:
+            return "Not OK"
+        if not isinstance (matrix[input], valid['type']):
+            return 'Not OK'
+
+    return 'OK'
+
 @app.post("/files")
 async def get_user_params(
-    # 2D list since users can do this multiple times
-    matrix: List[List[ClothingParameters]],
+    # Select is the task the user wants
+    matrix: List[ClothingParameters],
     select : int,
     color : str, 
     category : str
@@ -127,16 +164,13 @@ async def get_user_params(
         # Combine the input parameters with calculated values
         for data in matrix:
             user_params = {
-                'category' : category,
-                'color' : color,
-                'size' : data.size or '',
-                'catalog price' : data.catalog_price or 0,
-                'channel' : data.channel or '',
-                'original price' : data.original_price or 0,
-                'unit price' : data.unit_price or 0
+                'size' : data.size,
+                'catalog price' : data.catalog_price,
+                'channel' : data.channel,
+                'original price' : data.original_price
             }
             # Predict with the other model
-            result = stats_model.clothing_predict([user_params, select])
+            result = stats_model.clothing_predict([color, category, user_params, select])
             numerical_outputs.append(result.tolist())
         return numerical_outputs
     except Exception as e:
@@ -152,21 +186,25 @@ async def query_rag_system(query: str):
 
 @app.post("/predict")
 async def initialize_preds(
-    # 2D list since users can do this multiple times
+    # Select is the task the user wants
     matrix: List[List[ClothingParameters]], 
     file : UploadFile = File(...), 
     select : int = Body(...)
 ):
     color, category = await image_model_output(file)
-    numerical_outputs = get_user_params(matrix, select, color, category)
+    # Verifies if user parameters match the requirements
+    if verify_inputs() == 'OK':
+        numerical_outputs = get_user_params(color, category, matrix, select)
     
-    query = (f"Using the following user parameters {numerical_outputs}"
-             "Generate summary reports for how the clothing will do in"
-             "the market. Predict profit margin, quantity, and item total"
-             "All kinds of predictions use clothing type, color, size"
-             "Only quantity and item total use original price alongside"
-             "the other predictors")
+        query = (f"Using the following user parameters {numerical_outputs}"
+                "Generate summary reports for how the clothing will do in"
+                "the market. Predict profit margin, quantity, and item total"
+                "All kinds of predictions use clothing type, color, size"
+                "Only quantity and item total use original price alongside"
+                "the other predictors")
+        
+        response = query_rag_system(query)
     
-    response = query_rag_system(query)
-    
-    return response
+        return response
+    else:
+        return {'Sorry. Please Type in the Required Values'}

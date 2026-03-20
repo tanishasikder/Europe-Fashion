@@ -245,7 +245,7 @@ class MTGBM(BaseEstimator, RegressorMixin):
         y_train = y_train[mask]
         X_train = X_train[mask]
 
-        #['category', 'color', 'size', 'catalog_price', 'channel', 'original_price', 'unit_price']
+        #['category', 'color', 'size', 'catalog_price', 'channel', 'original_price']
         # Predicting profit margin for the first test
         # Predict how much quantity bought will change if unit_price changes
         # Predict item total based on original price and channel
