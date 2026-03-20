@@ -68,6 +68,7 @@ data_transforms = transforms.Compose([
     transforms.Normalize(mean, std)
 ])
 
+# Loops through the file names and stores all colors and categories
 def get_color_category():
     path = 'Fashion_Images/train'
     files = os.listdir(path)
@@ -87,6 +88,7 @@ def initialize_image_model():
 
     return image_model
 
+# Gets the model predictions for color and clothing type
 async def image_model_output(file: UploadFile) -> Image.Image:
     # Make sure the file is an image
     if not file.content_type.startswith('image/'):
