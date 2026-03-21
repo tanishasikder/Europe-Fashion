@@ -1,19 +1,112 @@
-# Europe-Fashion
-Machine learning project to make a product recommendation system and predict fashion product sales next month
 
+---
 
+# Fashion Intelligence Pipeline (End-to-End ML System)
 
+## Overview
 
-Product Details: The dataset captures four main fashion products under the "Bold Boxy" series — Dress, Set, Shoes, and Tee — along with their respective catalog and cost prices. This allows for analysis of pricing strategies and profit margins.
+This project is an end-to-end machine learning pipeline designed for fashion business owners to make data-driven decisions.
 
-Color Distribution: Product color preferences are recorded, showing a nearly balanced demand across popular colors such as Black, Blue, Green, Red, and White. Black ranks highest with 104 items sold, indicating strong consumer preference.
+Users can:
 
-Size Variants: Product sizing includes at least size 35 and 36 (as shown in the filters), giving flexibility for market segmentation based on physical fit and regional size demand.
+* Upload clothing images
+* Input product-related parameters
+* Receive predictions (e.g., pricing insights, profit margins)
+* Generate AI-powered business reports
 
-Sales Channels: Two primary sales channels — E-commerce and Mobile App — are compared. E-commerce generated the highest total original price (57K), slightly above the Mobile App channel (54K), reflecting strong performance in digital shopping platforms.
+The system combines **computer vision, classical ML, and LLMs** into a unified pipeline.
 
-Customer Demographics: The dataset categorizes customers by age ranges (16–25, 26–35, 36–45, 46–55, 56–65) and country (France, Germany, Italy, Netherlands, Portugal, and Spain). This segmentation is useful for targeted marketing and personalized service strategies.
+---
 
-Customer Service Trends: A year-over-year breakdown of customer service interactions per age group and country is visualized. For instance, in 2025, the 36–45 age group from France reported the highest service interaction (37), suggesting that middle-aged customers may require more support or are more engaged.
+## Architecture
 
-Overall Product Count: A total of 500 fashion items are included, showcasing product volume and sales scope.
+### 1. Image Classification (PyTorch)
+
+* Users upload a clothing image
+* A trained PyTorch model classifies the clothing type (e.g., shirt, dress, etc.)
+* Model weights are saved and loaded for inference
+
+### 2. Structured Prediction Model (Scikit-learn)
+
+* Takes user inputs such as:
+
+  * Original price
+  * Catalog price
+  * Clothing size
+  * Predicted clothing type (from CV model)
+* Outputs:
+
+  * Estimated profit margins
+  * Pricing insights
+  * Other business metrics
+
+### 3. API Layer (FastAPI)
+
+* Serves as the central interface
+* Handles:
+
+  * Image uploads
+  * Model inference calls
+  * Data processing
+* Integrates both ML models into a unified pipeline
+
+### 4. Retrieval-Augmented Generation (RAG)
+
+* Uses a vector database to store relevant fashion/business knowledge
+* Enhances LLM responses with context
+* Generates detailed reports based on predictions
+
+### 5. LLM Report Generation
+
+* Produces business insights such as:
+
+  * Market positioning
+  * Pricing strategy recommendations
+  * Profitability analysis
+
+### 6. Data Storage
+
+* **SQLite3**
+
+  * Stores user inputs
+  * Stores past predictions
+* **Vector Database**
+
+  * Stores embeddings for RAG
+
+### 7. Experiment Tracking (MLflow)
+
+* Tracks:
+
+  * Model performance
+  * Experiments
+  * Parameters
+* Helps with reproducibility and versioning
+
+---
+
+## Tech Stack
+
+* **Machine Learning:** Scikit-learn
+* **Deep Learning:** PyTorch
+* **Backend:** FastAPI
+* **Frontend:** HTML
+* **Database:** SQLite3
+* **Vector DB:** (e.g., FAISS / Chroma)
+* **Experiment Tracking:** MLflow
+* **LLM Integration:** RAG + API-based LLM
+
+---
+
+##  End-to-End Pipeline Flow
+
+1. User uploads clothing image
+2. PyTorch model predicts clothing type
+3. User inputs product parameters
+4. Scikit-learn model predicts business metrics
+5. Results stored in SQLite
+6. Relevant context retrieved via vector DB
+7. LLM generates a detailed report
+8. Final output returned via API + frontend
+
+---
