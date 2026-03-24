@@ -206,10 +206,11 @@ class MTGBM(BaseEstimator, RegressorMixin):
         #product_compare.to_csv('C:/Users/Tanis/Downloads/Europe-Fashion/Fashion Data/product_comparing.csv', index=False)
 
         # After making the CSV file, generate synthetic data, loading here.
-        synthetic = pd.read_csv('Fashion Data/synthetic_data.csv')
-
-        # Combine synthetic data with original data
-        product_compare = pd.concat([product_compare, synthetic], ignore_index=True)
+        #synthetic = pd.read_csv('Fashion Data/synthetic_data.csv')
+        
+        #synthetic_sample = synthetic.sample(n=100, random_state=42)
+        #Combine synthetic data with original data
+        #product_compare = pd.concat([product_compare, synthetic_sample], ignore_index=True)
 
         # Adds a column to show the product's cost to make
         product_compare['cost_to_make'] = product_compare['cost_price'] * product_compare['quantity']
@@ -219,7 +220,7 @@ class MTGBM(BaseEstimator, RegressorMixin):
 
         #Adds a column to show profit margin
         product_compare['profit_margin'] = (product_compare['unit_price'] - product_compare['cost_price']) / product_compare['unit_price']
-
+        #product_compare = product_compare[product_compare['profit_margin'] >= 0]
         # Categorical variables for encoding
         categorical = ['category', 'color', 'size', 'channel']
 
@@ -232,8 +233,8 @@ class MTGBM(BaseEstimator, RegressorMixin):
             # Store the encoders used for every categorical variable
             categorical_encoding[col] = label
 
-        X = product_compare[['category', 'color', 'size', 'catalog_price', 'channel', 'original_price', 'unit_price']].values
-        y = product_compare[['profit_margin', 'quantity', 'item_total']].values
+        X = product_compare[['category', 'color', 'size', 'catalog_price', 'channel', 'original_price', 'unit_price', 'cost_price']].values
+        y = product_compare[['profit_margin', 'quantity', 'profit']].values
         
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42
@@ -257,9 +258,9 @@ class MTGBM(BaseEstimator, RegressorMixin):
         # Predict item total based on original price and channel
         # Need to handle correlation
         feature_indices = {
-            0: [0, 1, 2, 3],  # Features for profit margin    
-            1: [0, 1, 2, 3, 5],   # Features for quantity     
-            2: [0, 1, 2, 3, 5]    # Features for item_total
+            0: [0, 1, 2, 3, 4, 7],  # Features for profit margin    
+            1: [0, 1, 2, 3, 4, 5],   # Features for quantity     
+            2: [0, 1, 2, 3, 4, 5]    # Features for profit
         }
 
         with mlflow.start_run():
@@ -283,7 +284,7 @@ class MTGBM(BaseEstimator, RegressorMixin):
 
             real_pred = scaler.inverse_transform(pred)
 
-            for i, name in enumerate(['profit_margin', 'quantity', 'item_total']):
+            for i, name in enumerate(['profit_margin', 'quantity', 'profit']):
                 mse = mean_squared_error(y_test[:, i], real_pred[:, i])
                 print(f"{name}: {mse}")
             #print(mse)
