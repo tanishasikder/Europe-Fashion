@@ -5,9 +5,9 @@ from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from typing import List, Dict
-from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
-from joblib import dump, load
-import os
+from sklearn.metrics import mean_squared_error
+import mlflow
+from sklearn.preprocessing import StandardScaler
 
 # Creating a class for MTGBM with parameters to inherit.
 # BaseEstimator and RegressorMixin gives methods
@@ -18,10 +18,10 @@ class MTGBM(BaseEstimator, RegressorMixin):
         n_tasks : int = 3,
         n_estimators=50,      
         learning_rate=0.05,    
-        max_depth=3,                   
+        max_depth=4,                   
         min_child_samples=32,   
         random_state=41,
-        reg_lambda = 3.0,
+        reg_lambda = 5.0,
         verbose: int = -1
     ):
         self.n_tasks = n_tasks
@@ -51,10 +51,11 @@ class MTGBM(BaseEstimator, RegressorMixin):
     def _get_correlations(self, y: np.ndarray):
         return np.corrcoef(y.T)
     
+    # Parameters are feature indices, specific task, and task predictions
     def _augmented_features(self, X: np.ndarray, task_id: int,
                             other_predictions: Dict[int, np.ndarray] = None):
         # Add predictions from other tasks as features
-       # if not self.share_embeddings or other_predictions is None:
+        # if not self.share_embeddings or other_predictions is None:
         #    return X
         if other_predictions is None:
             return X
@@ -100,7 +101,6 @@ class MTGBM(BaseEstimator, RegressorMixin):
 
         self.models_ = []
         task_predictions = {}
-
         self.n_augmented_features_ = {}
 
         for task in range(self.n_tasks):
@@ -137,31 +137,31 @@ class MTGBM(BaseEstimator, RegressorMixin):
 
         return self
 
-    def predict(self, user_params, select):
+    def predict_values(self, user_params):
         # Predicting all tasks at once
-
         # Initially create empty array/dictionary
-        predictions = np.zeros((1, self.n_tasks))
+        predictions = np.zeros((len(user_params), self.n_tasks))
         task_predictions = {}
 
-        # User selects a specific task and gives formatted features
-        # Augmented is made based on these
-        augmented = self._augmented_features(user_params, select, task_predictions)
+        for task in range(self.n_tasks):
+            # User selects a specific task and gives formatted features
+            specific_task = user_params[:, self.feature_indices_[task]]
+            # Augmented is made based on these
+            augmented = self._augmented_features(specific_task, task, task_predictions)
+ 
+            expected_num = self.n_augmented_features_[task]
+            actual_num = augmented.shape[1]
+            # If expected count and actual count don't match then pad with zeros
+            # Sometimes only keeping values with a specific correlation can make the
+            # n_features not be the same as the original n_features
+            if actual_num < expected_num:
+                # Creates extra columns of zeros so errors don't happen
+                padding = np.zeros((user_params[0], expected_num - actual_num))
+                augmented = np.hstack([augmented, padding])
 
-        expected_num = self.n_augmented_features_[select]
-        actual_num = augmented.shape[1]
-        # If expected count and actual count don't match then pad with zeros
-        # Sometimes only keeping values with a specific correlation can make the
-        # n_features not be the same as the original n_features
-        if actual_num < expected_num:
-            # Creates extra columns of zeros so errors don't happen
-            padding = np.zeros((user_params, expected_num - actual_num))
-            augmented = np.hstack([augmented, padding])
-
-        predict = self.models_[select].predict(augmented)
-        predictions[:, select] = predict
-        task_predictions[select] = predict
-        
+            task_predictions[task] = self.models_[task].predict(augmented)
+            predictions[:, task] = task_predictions[task]
+    
         return predictions
     
     def train_model(self):
@@ -239,13 +239,19 @@ class MTGBM(BaseEstimator, RegressorMixin):
             X, y, test_size=0.2, random_state=42
         )
 
+        # Profit margin, quantity, and item total are on different scales
+        scaler = StandardScaler()
+        
+        y_train = scaler.fit_transform(y_train)
+        y_test = scaler.transform(y_test)
+
         # These indices skew the data negatively
         mask = np.ones(len(X_train), dtype=bool)
         mask[[291, 263]] = False
         y_train = y_train[mask]
         X_train = X_train[mask]
 
-        #['category', 'color', 'size', 'catalog_price', 'channel', 'original_price']
+        #['category', 'color', 'size', 'catalog_price', 'channel', 'original_price', 'unit_price']
         # Predicting profit margin for the first test
         # Predict how much quantity bought will change if unit_price changes
         # Predict item total based on original price and channel
@@ -256,21 +262,37 @@ class MTGBM(BaseEstimator, RegressorMixin):
             2: [0, 1, 2, 3, 5]    # Features for item_total
         }
 
-        model = MTGBM(
-            n_tasks=3,
-            n_estimators=50,
-            learning_rate=0.1,
-            max_depth=5,
-            verbose=-1,
-            random_state=42
-        )
+        with mlflow.start_run():
+            model = MTGBM(
+                n_tasks=3,
+                n_estimators=50,
+                learning_rate=0.05,
+                max_depth=4,
+                verbose=-1,
+                random_state=42
+            )
+            
+            model.fit(X_train, y_train, feature_indices)
+            mlflow.log_params(model.get_params())
+            #DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            #path = os.path.join(DIR, "business_logic", "stats_model.joblib")
+            #dump(model, path)
 
-        model.fit(X_train, y_train, feature_indices)
-        DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        path = os.path.join(DIR, "business_logic", "stats_model.joblib")
-        dump(model, path)
+            # Make the model predict then test the metrics
+            pred = model.predict_values(X_test)
 
-        return model
+            real_pred = scaler.inverse_transform(pred)
+
+            for i, name in enumerate(['profit_margin', 'quantity', 'item_total']):
+                mse = mean_squared_error(y_test[:, i], real_pred[:, i])
+                print(f"{name}: {mse}")
+            #print(mse)
+
+
+            # Log metrics and model
+            mlflow.log_metric("mse", mse)
+            mlflow.sklearn.log_model(model, "sales_predict_model")
+            return model
 
 mtgbm = MTGBM()
 mtgbm.train_model()
