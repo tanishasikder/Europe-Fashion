@@ -3,11 +3,14 @@ import pandas as pd
 import lightgbm as lgb
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import LeaveOneOut
+from sklearn.model_selection import train_test_split, cross_val_score
 from typing import List, Dict
 from sklearn.metrics import mean_squared_error
 import mlflow
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import KFold
+from sklearn.metrics import r2_score
 
 # Creating a class for MTGBM with parameters to inherit.
 # BaseEstimator and RegressorMixin gives methods
@@ -236,64 +239,82 @@ class MTGBM(BaseEstimator, RegressorMixin):
         X = product_compare[['category', 'color', 'size', 'catalog_price', 'channel', 'original_price', 'unit_price', 'cost_price']].values
         y = product_compare[['profit_margin', 'quantity', 'profit']].values
         
+        '''
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42
         )
+        '''
+        cv = LeaveOneOut()
 
-        # Profit margin, quantity, and item total are on different scales
-        scaler = StandardScaler()
-        
-        y_train = scaler.fit_transform(y_train)
-        y_test = scaler.transform(y_test)
+        for train_index, test_index in cv.split(X):
 
-        # These indices skew the data negatively
-        mask = np.ones(len(X_train), dtype=bool)
-        mask[[291, 263]] = False
-        y_train = y_train[mask]
-        X_train = X_train[mask]
-
-        #['category', 'color', 'size', 'catalog_price', 'channel', 'original_price', 'unit_price']
-        # Predicting profit margin for the first test
-        # Predict how much quantity bought will change if unit_price changes
-        # Predict item total based on original price and channel
-        # Need to handle correlation
-        feature_indices = {
-            0: [0, 1, 2, 3, 4, 7],  # Features for profit margin    
-            1: [0, 1, 2, 3, 4, 5],   # Features for quantity     
-            2: [0, 1, 2, 3, 4, 5]    # Features for profit
-        }
-
-        with mlflow.start_run():
-            model = MTGBM(
-                n_tasks=3,
-                n_estimators=50,
-                learning_rate=0.05,
-                max_depth=4,
-                verbose=-1,
-                random_state=42
-            )
+            X_train, X_test = X[train_index, :], X[test_index, :]
+            y_train, y_test = y[train_index], y[test_index]
+            # Profit margin, quantity, and item total are on different scales
+            scaler = StandardScaler()
             
-            model.fit(X_train, y_train, feature_indices)
-            mlflow.log_params(model.get_params())
-            #DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            #path = os.path.join(DIR, "business_logic", "stats_model.joblib")
-            #dump(model, path)
+            y_train = scaler.fit_transform(y_train)
+            y_test = scaler.transform(y_test)
 
-            # Make the model predict then test the metrics
-            pred = model.predict_values(X_test)
+            # These indices skew the data negatively
+            mask = np.ones(len(X_train), dtype=bool)
+            mask[[291, 263]] = False
+            y_train = y_train[mask]
+            X_train = X_train[mask]
 
-            real_pred = scaler.inverse_transform(pred)
+            #['category', 'color', 'size', 'catalog_price', 'channel', 'original_price', 'unit_price']
+            # Predicting profit margin for the first test
+            # Predict how much quantity bought will change if unit_price changes
+            # Predict item total based on original price and channel
+            # Need to handle correlation
+            feature_indices = {
+                0: [0, 1, 2, 3, 4, 7],  # Features for profit margin    
+                1: [0, 1, 2, 3, 4, 5],   # Features for quantity     
+                2: [0, 1, 2, 3, 4, 5]    # Features for profit
+            }
 
-            for i, name in enumerate(['profit_margin', 'quantity', 'profit']):
-                mse = mean_squared_error(y_test[:, i], real_pred[:, i])
-                print(f"{name}: {mse}")
-            #print(mse)
+            with mlflow.start_run():
+                model = MTGBM(
+                    n_tasks=3,
+                    n_estimators=50,
+                    learning_rate=0.05,
+                    max_depth=4,
+                    verbose=-1,
+                    random_state=42
+                )
+                
+                model.fit(X_train, y_train, feature_indices)
+                mlflow.log_params(model.get_params())
+                #DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                #path = os.path.join(DIR, "business_logic", "stats_model.joblib")
+                #dump(model, path)
 
+                # Make the model predict then test the metrics
+                pred = model.predict_values(X_test)
+                real_pred = scaler.inverse_transform(pred)
 
-            # Log metrics and model
-            mlflow.log_metric("mse", mse)
-            mlflow.sklearn.log_model(model, "sales_predict_model")
-            return model
+                #print(f"TRAIN set size: {len(train_index)}")
+                #print(f"TEST set size: {len(test_index)}")
+                #print(f"mse: {mean_squared_error(y_test, real_pred)}\n")
+
+                '''
+                # TO DO: AFTER GETTING QUANTITY PREDICT WITH THE CATALOG PRICE GIVEN IN CUSTOMER_PREDICT
+                quantites = real_pred[:, 1]
+
+                for i, j in zip(quantites, X_test[:, 3]):
+                    print(i * j)
+
+                '''
+                for i, name in enumerate(['profit_margin', 'quantity', 'profit']):
+                    mse = mean_squared_error(y_test[:, i], real_pred[:, i])
+                    print(f"{name}: {mse}")
+                #print(mse)
+
+                
+                # Log metrics and model
+                #mlflow.log_metric("mse", mse)
+                #mlflow.sklearn.log_model(model, "sales_predict_model")
+        return model
 
 mtgbm = MTGBM()
 mtgbm.train_model()
