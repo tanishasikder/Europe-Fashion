@@ -2,11 +2,11 @@ import numpy as np
 import pandas as pd
 import lightgbm as lgb
 from sklearn.base import BaseEstimator, RegressorMixin
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import PowerTransformer
 from sklearn.model_selection import LeaveOneOut
 from sklearn.model_selection import train_test_split, cross_val_score
 from typing import List, Dict
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 import mlflow
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import KFold
@@ -226,28 +226,9 @@ class MTGBM(BaseEstimator, RegressorMixin):
         product_compare['profit_margin'] = (product_compare['unit_price'] - product_compare['cost_price']) / product_compare['unit_price']
         #product_compare = product_compare[product_compare['profit_margin'] >= 0]
         
-        '''
-        # Categorical variables for encoding
-        categorical = ['category', 'color', 'size', 'channel']
-
-        categorical_encoding = {}
-
-        for col in categorical:
-            label = LabelEncoder()
-            # In the initial dataframe, replace every categorical value with the encoded one
-            product_compare[col] = label.fit_transform(product_compare[col])
-            # Store the encoders used for every categorical variable
-            categorical_encoding[col] = label
-        '''
         X = product_compare[['category', 'color', 'size', 'channel', 'catalog_price', 'original_price', 'unit_price', 'cost_price']]
         y = product_compare[['profit_margin', 'quantity', 'profit']]
 
-        
-        '''
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
-        )
-        '''
         cv = LeaveOneOut()
 
         # Categorical variables for encoding
@@ -271,7 +252,6 @@ class MTGBM(BaseEstimator, RegressorMixin):
 
             # Profit margin, quantity, and item total are on different scales
             X_scaler = StandardScaler()
-            y_scaler = StandardScaler()
 
             num_X_train = X_scaler.fit_transform(X_train[numerical])
             num_X_test = X_scaler.transform(X_test[numerical])
@@ -279,8 +259,13 @@ class MTGBM(BaseEstimator, RegressorMixin):
             X_train = np.hstack([categorical_X_train, num_X_train])
             X_test = np.hstack([categorical_X_test, num_X_test])
 
-            y_train = y_scaler.fit_transform(y_train)
-            y_test = y_scaler.transform(y_test)
+            # Apply transformations to skewed data
+            yeo_johnson = PowerTransformer(method='yeo-johnson', standardize=True)
+
+            y_train = yeo_johnson.fit_transform(y_train)
+            y_test = yeo_johnson.transform(y_test)
+
+
             # new ['category', 'color', 'size', 'channel', 'catalog_price', 'original_price', 'unit_price', 'cost_price']
             # old ['category', 'color', 'size', 'catalog_price', 'channel', 'original_price', 'unit_price', 'cost_price']
 
@@ -291,7 +276,7 @@ class MTGBM(BaseEstimator, RegressorMixin):
             feature_indices = {
                 0: [0, 1, 2, 3, 4, 7],  # Features for profit margin    
                 1: [0, 1, 2, 3, 4, 5],   # Features for quantity     
-                2: [0, 1, 2, 3, 4, 5]    # Features for profit
+                2: [0, 1, 2, 3, 4, 6, 7]    # Features for profit
             }
 
             with mlflow.start_run():
@@ -312,8 +297,9 @@ class MTGBM(BaseEstimator, RegressorMixin):
 
                 # Make the model predict then test the metrics
                 pred = model.predict_values(X_test)
-                #real_pred = X_scaler.inverse_transform(pred)
-
+                # Bring it back to the same dimension
+                real_pred = yeo_johnson.inverse_transform(pred)
+                real_y_test = yeo_johnson.inverse_transform(y_test)
                 #print(f"TRAIN set size: {len(train_index)}")
                 #print(f"TEST set size: {len(test_index)}")
                 #print(f"mse: {mean_squared_error(y_test, real_pred)}\n")
@@ -327,8 +313,10 @@ class MTGBM(BaseEstimator, RegressorMixin):
 
                 '''
                 for i, name in enumerate(['profit_margin', 'quantity', 'profit']):
-                    mse = mean_squared_error(y_test[:, i], pred[:, i])
-                    print(f"{name}: {mse}")
+                    if name == 'profit_margin':
+                        print(f"{name}: {mean_squared_error(real_y_test[:, i], real_pred[:, i])}")
+                    else:
+                        print(f"{name}: {mean_absolute_error(real_y_test[:, i], real_pred[:, i])}")
                 #print(mse)
 
                 
