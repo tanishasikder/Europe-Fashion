@@ -30,6 +30,7 @@ parent = Path(__file__).parent
 path = parent / "stats_model.joblib"
 stats_model = load(path)
 app = FastAPI()
+app.include_router(router)
 
 # Basic health check to ensure server is functioning
 @app.get("/health")
@@ -113,14 +114,14 @@ async def image_model_output(file: UploadFile) -> Image.Image:
         }
         return color, cloth_type
     except Exception as e:
-        raise HTTPException(stats_code=500, detail="Sorry. Prediction Failed")
+        raise HTTPException(status_code=500, detail="Sorry. Prediction Failed")
     
 def remove_expired_images():
     # Remove images after an hour
-    for key, data in image_storage.items():
+    for key, data in list(image_storage.items()):
         upload = image_storage[key]['uploaded']
-        if upload >= upload + timedelta(hours=1):
-            image_storage.pop(upload)
+        if datetime.now() >= upload + timedelta(hours=1):
+            image_storage.pop(key)
 
 # Defines dictionary for acceptable ranges and types
 def acceptable_values():
@@ -146,9 +147,9 @@ def verify_inputs(matrix: List[ClothingParameters]):
 
     for input in matrix:
         valid = template[input]
-        if matrix[input] not in valid:
+        if matrix[input] not in valid['values']:
             return "Not OK"
-        if not isinstance (matrix[input], valid['type']):
+        if not isinstance (matrix[input], valid['types']):
             return 'Not OK'
 
     return 'OK'
@@ -189,14 +190,14 @@ async def query_rag_system(query: str):
 @app.post("/predict")
 async def initialize_preds(
     # Select is the task the user wants
-    matrix: List[List[ClothingParameters]], 
+    matrix: List[ClothingParameters], 
     file : UploadFile = File(...), 
     select : int = Body(...)
 ):
     color, category = await image_model_output(file)
     # Verifies if user parameters match the requirements
-    if verify_inputs() == 'OK':
-        numerical_outputs = get_user_params(color, category, matrix, select)
+    if verify_inputs(matrix) == 'OK':
+        numerical_outputs = await get_user_params(matrix, select, color, category)
     
         query = (f"Using the following user parameters {numerical_outputs}"
                 "Generate summary reports for how the clothing will do in"
@@ -205,7 +206,7 @@ async def initialize_preds(
                 "Only quantity and item total use original price alongside"
                 "the other predictors")
         
-        response = query_rag_system(query)
+        response = await query_rag_system(query)
     
         return response
     else:
