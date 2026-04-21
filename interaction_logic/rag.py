@@ -5,7 +5,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.vectorstores import InMemoryVectorStore
 import bs4
 from langchain.tools import tool
-from langchain_community.document_loaders import WebBaseLoader
+from langchain_community.document_loaders import PyPDFLoaderfrom 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.agents import create_agent
 from dotenv import load_dotenv
@@ -36,11 +36,8 @@ def make_agent():
     # Background information to store for the LLM
     bs4_soup = bs4.SoupStrainer(class_=("post-title", "post-header", "post-content"))
 
-    fashion_loader = WebBaseLoader(
-        web_paths=("https://globusjournal.com/wp-content/uploads/2024/11/GMIT-JD24-161-7-Vibha-Chandrakar.pdf", 
-                "https://www.researchgate.net/publication/330769666_Evaluating_fast_fashion_Fast_Fashion_and_Consumer_Behaviour",
-                "https://www.researchgate.net/publication/391587135_Consumer's_Buying_Behavior_on_Fashion_Wears",),
-                bs_kwargs={"parse_only": bs4_soup}
+    fashion_loader = PyPDFLoader(
+        "https://globusjournal.com/wp-content/uploads/2024/11/GMIT-JD24-161-7-Vibha-Chandrakar.pdf"
     )
     docs = fashion_loader.load()
 
