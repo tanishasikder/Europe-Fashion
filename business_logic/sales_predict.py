@@ -105,6 +105,7 @@ def train_model(X, y):
     c = [col for col in categorical if col in X.columns]
     n = [col for col in numerical if col in X.columns]
 
+    average_mse = 0.0
     for train_index, test_index in cv.split(X):
         X_train, X_test = X.iloc[train_index], X.iloc[test_index]
         y_train, y_test = y.iloc[train_index], y.iloc[test_index]
@@ -156,7 +157,7 @@ def train_model(X, y):
             #mse = mean_squared_error(y_test, y_pred)
             print(mse)
             print(f'pred: {y_pred}')
-            
+            print((average_mse += mse) / 500)
             #print(f"TRAIN set size: {len(train_index)}")
             #print(f"TEST set size: {len(test_index)}")
             #print(f"mse: {mean_squared_error(y_test, real_pred)}\n")
