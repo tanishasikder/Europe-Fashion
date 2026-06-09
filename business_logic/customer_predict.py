@@ -15,6 +15,7 @@ from pathlib import Path
 import sys
 from joblib import load
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field, field_validator
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
@@ -45,10 +46,9 @@ image_storage = {}
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"]
+    allow_origins=["https://clothingpredict.com"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type"]
 )
 
 # Initial parameters to predict with later on
@@ -138,22 +138,20 @@ def acceptable_values():
 
     return template
 
+# Checks if theres an empty field
+@field_validator()
+@classmethod
+def verify_inputs(user_param):
+    cleaned = user_param.strip()
+
+    # If the string is empty
+    if not cleaned:
+        raise ValueError("Field cannot be empty")
+
+    return cleaned
+    
 # Checks if the user typed in acceptable parameters
-def verify_inputs(matrix: List[ClothingParameters]):
-    if '' in matrix:
-        return 'Please Fill Out All Fields'
-
-    template = acceptable_values()
-
-    for input in matrix:
-        valid = template[input]
-        if matrix[input] not in valid['values']:
-            return "Not OK"
-        if not isinstance (matrix[input], valid['types']):
-            return 'Not OK'
-
-    return 'OK'
-
+# Then combines if its fine
 @app.post("/files")
 async def get_user_params(
     # Select is the task the user wants
@@ -164,14 +162,21 @@ async def get_user_params(
 ):
     try:
         numerical_outputs = []
+        template = acceptable_values()
         # Combine the input parameters with calculated values
         for data in matrix:
+            verify_inputs(data)
             user_params = {
                 'size' : data.size,
                 'catalog price' : data.catalog_price,
                 'channel' : data.channel,
                 'original price' : data.original_price
             }
+
+            if user_params[data] not in template[data]:
+                return "Not OK"
+            if not isinstance(user_params[data], template[data]['types']):
+                return "Not OK"
             # Predict with the other model
             result = stats_model.clothing_predict([color, category, user_params, select])
             numerical_outputs.append(result.tolist())
