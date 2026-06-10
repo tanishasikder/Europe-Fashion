@@ -157,7 +157,7 @@ def train_model(X, y):
             #mse = mean_squared_error(y_test, y_pred)
             print(mse)
             print(f'pred: {y_pred}')
-            print((average_mse += mse) / 500)
+            #print((average_mse += mse) / 500)
             #print(f"TRAIN set size: {len(train_index)}")
             #print(f"TEST set size: {len(test_index)}")
             #print(f"mse: {mean_squared_error(y_test, real_pred)}\n")

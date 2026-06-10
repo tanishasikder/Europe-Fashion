@@ -38,6 +38,10 @@ app.include_router(router)
 def root():
     return {"status" : "OK"}
 
+# Function that initializes the image model when app starts
+@app.on_event("startup")
+async def startup_event():
+    return initialize_image_model()
 
 # Temporary storage for image features
 # Store image_id, image characteristics, when uploaded
@@ -152,7 +156,7 @@ def verify_inputs(user_param):
     
 # Checks if the user typed in acceptable parameters
 # Then combines if its fine
-@app.post("/files")
+#@app.post("/files")
 async def get_user_params(
     # Select is the task the user wants
     matrix: List[ClothingParameters],
@@ -192,14 +196,22 @@ async def query_rag_system(query: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/predict")
+#@app.post("/predict")
 async def initialize_preds(
     # Select is the task the user wants
     matrix: List[ClothingParameters], 
     file : UploadFile = File(...), 
     select : int = Body(...)
 ):
-    color, category = await image_model_output(file)
+    # We need this to find the true english labels
+    color_labels, category_labels = get_color_category()
+
+    color_py, category_py = await image_model_output(file)
+    color_pred = torch.argmax(color_py, dim=1)
+    cat_pred = torch.argmax(category_py, dim=1)
+    
+    # Find the color and category based on the gotten index
+    color, category = color_labels[color_pred], category_labels[cat_pred]
     # Verifies if user parameters match the requirements
     if verify_inputs(matrix) == 'OK':
         numerical_outputs = await get_user_params(matrix, select, color, category)
