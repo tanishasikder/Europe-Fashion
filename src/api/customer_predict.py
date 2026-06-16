@@ -17,14 +17,18 @@ from joblib import load
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
+'''
+GET RID OF IMAGE MODEL IN image_model_output
+'''
+
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
 from interaction_logic.rag import get_rag_response
 router = APIRouter()
 
 # Loading in the custom model
-from business_logic.image_extraction import CNN
-from business_logic.sales_predict import MTGBM
+from src.models.image_extraction import CNN
+from src.models.sales_predict import MTGBM
 
 # Makes python looks at the parent root directories to find the model
 parent = Path(__file__).parent
@@ -102,6 +106,9 @@ async def image_model_output(file: UploadFile) -> Image.Image:
     contents = await file.read()
     try:
         remove_expired_images()
+        # Get rid of this. You need to call the start function
+        #then use the returned value as the image model
+        #not initialize it here
         image_model = initialize_image_model()
         # Extract the image from content
         image = Image.open(io.BytesIO(contents)).convert("RGB")

@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 import torch.multiprocessing as mp
 import numpy as np
 from PIL import Image
-from image_extraction import CNN
+from src.models.image_extraction import CNN
 
 # Push to GPU if it is available, CPU if not
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
