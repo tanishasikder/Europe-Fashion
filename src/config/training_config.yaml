@@ -1,0 +1,4 @@
+project_name: 'sales_predict'
+
+dataset:
+  raw_path: r'data/Fashion Data/DataPenjualanFashion.xlsx'

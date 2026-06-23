@@ -9,13 +9,33 @@ from sklearn.model_selection import KFold
 from sklearn.metrics import r2_score
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.svm import SVR
+from pathlib import Path
+import yaml
 
+# Best Practice for locating parent directories
+BASE_DIR = Path(__file__).resolve().parents[1]
+
+# Safely join directories/files using the division operator
+CONFIG_PATH = BASE_DIR / 'config'/'training_config.yaml'
+
+'''
+CONFIG_PATH = Path(__file__).resolve().parent.parent/'config'/'training_config.yaml'
+
+'''
+print(CONFIG_PATH)
 # Categorical variables for encoding
 categorical = ['category', 'color', 'size', 'channel']
 numerical = ['catalog_price', 'original_price', 'unit_price', 'cost_price']
 
 def initialization():
-    data = pd.read_excel('data/Fashion Data/DataPenjualanFashion.xlsx', sheet_name=None)
+    #data = pd.read_excel('data/Fashion Data/DataPenjualanFashion.xlsx', sheet_name=None)
+
+    with open(CONFIG_PATH, 'r') as f:
+        config = yaml.safe_load(f)
+    
+    data_path = Path(config['dataset']['raw_path'])
+
+    data = pd.read_csv(data_path)
 
     # Separating the data into dataframes
     products = data['ProductItems']
@@ -125,6 +145,8 @@ def train_model(X, y):
                 # Log metrics and model
                 mlflow.log_metric("mse", mse)
                 mlflow.sklearn.log_model(model, "sales_predict_model")
+
+        mlflow.end_run()
 
 X, y = initialization()
 
