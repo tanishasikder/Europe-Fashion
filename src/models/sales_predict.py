@@ -14,15 +14,10 @@ import yaml
 
 # Best Practice for locating parent directories
 BASE_DIR = Path(__file__).resolve().parents[1]
-
+BASE_DIR1 = Path(__file__).resolve().parents[2]
 # Safely join directories/files using the division operator
 CONFIG_PATH = BASE_DIR / 'config'/'training_config.yaml'
 
-'''
-CONFIG_PATH = Path(__file__).resolve().parent.parent/'config'/'training_config.yaml'
-
-'''
-print(CONFIG_PATH)
 # Categorical variables for encoding
 categorical = ['category', 'color', 'size', 'channel']
 numerical = ['catalog_price', 'original_price', 'unit_price', 'cost_price']
@@ -33,9 +28,11 @@ def initialization():
     with open(CONFIG_PATH, 'r') as f:
         config = yaml.safe_load(f)
     
-    data_path = Path(config['dataset']['raw_path'])
-
-    data = pd.read_csv(data_path)
+    data_path = BASE_DIR1 / config['dataset']['raw_path']
+    #print(f'data path is this: {data_path}')
+    data = pd.read_excel(data_path, sheet_name=None)
+    print(data_path)
+    print(data)
 
     # Separating the data into dataframes
     products = data['ProductItems']

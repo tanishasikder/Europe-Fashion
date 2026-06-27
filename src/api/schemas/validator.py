@@ -2,6 +2,9 @@
  Pydantic classes that define the exact shape of data coming in 
  and going out. Think of them as the data contract — every field, 
  its type, and its validation rules live here. Nothing else does.
+
+
+NOTE WE NEED TO HAVE VALIDATION AND INPUT IN THE SERVICES LOGIC
 '''
 
 from datetime import datetime, timedelta

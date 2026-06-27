@@ -23,7 +23,7 @@ GET RID OF IMAGE MODEL IN image_model_output
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-from interaction_logic.rag import get_rag_response
+from api.rag import get_rag_response
 router = APIRouter()
 
 # Loading in the custom model
