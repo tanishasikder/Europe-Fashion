@@ -8,6 +8,7 @@ from langchain_community.document_loaders import PyPDFLoaderfrom
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.agents import create_agent
 from dotenv import load_dotenv
+import PyPDFLoader
 
 def make_agent():
     load_dotenv()

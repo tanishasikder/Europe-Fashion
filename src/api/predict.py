@@ -9,14 +9,10 @@ from pydantic import BaseModel, Field, field_validator
 from rag import get_rag_response
 from services import image_model_output
 from services import get_user_params
+from schemas.input import input
+from schemas.input import ClothingRequest
 
-
-# Initial parameters to predict with later on
-class ClothingParameters(BaseModel):
-    size : str = None
-    catalog_price : float = None
-    channel : str = None
-    original_price : float = None
+router = APIRouter()
 
 @router.get("/query/")
 async def query_rag_system(query: str):
@@ -40,12 +36,7 @@ async def initialize_preds(numerical_outputs):
     return response
 
 # Gets the model predictions for color and clothing type
-async def image_model_output(file: UploadFile) -> Image.Image:
-    # Make sure the file is an image
-    if not file.content_type.startswith('image/'):
-        raise HTTPException(status_code=400, detail="File must be an image. Try again")
-    # Wait for the file to be read
-    contents = await file.read()
+async def image_model_output(contents: Image.Image):
     try:
         # Perform inference
         with torch.no_grad():
@@ -57,7 +48,7 @@ async def image_model_output(file: UploadFile) -> Image.Image:
     
 async def get_user_params(
     # Select is the task the user wants
-    matrix: List[ClothingParameters],
+    matrix: List[ClothingRequest],
     select : int,
     color : str, 
     category : str

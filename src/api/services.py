@@ -13,6 +13,7 @@ from api.dependencies import get_image_model
 from api.dependencies import get_stats_model
 from pydantic import BaseModel
 from typing import Optional, List
+from schemas.input import ClothingRequest
 
 mean = np.array([0.485, 0.456, 0.406])
 std = np.array([0.229, 0.224, 0.225])
@@ -30,12 +31,6 @@ data_transforms = transforms.Compose([
     transforms.Normalize(mean, std)
 ])
 
-# Initial parameters to predict with later on
-class ClothingParameters(BaseModel):
-    size : str = None
-    catalog_price : float = None
-    channel : str = None
-    original_price : float = None
 
 def remove_expired_images():
     # Remove images after an hour
@@ -44,28 +39,21 @@ def remove_expired_images():
         if datetime.now() >= upload + timedelta(hours=1):
             image_storage.pop(key)
 
-# Gets the model predictions for color and clothing type
-def image_model_output(file: UploadFile) -> Image.Image:
+# Stores the image with the timestamp
+def image_model_output(color, cloth_type):
     remove_expired_images()
-    # Extract the image from content
-    image = Image.open(io.BytesIO(UploadFile)).convert("RGB")
     # Create image ID
     image_id = str(uuid.uuid4())
     image = data_transforms(image).unsqueeze(0)
-    # Perform inference
-    with torch.no_grad():
-        color, cloth_type = get_image_model(image)
 
     image_storage[image_id] = {
         'features': [color, cloth_type],
         'uploaded': datetime.now()
     }
-    return color, cloth_type
 
-    
 def get_user_params(
     # Select is the task the user wants
-    matrix: List[ClothingParameters],
+    matrix: List[ClothingRequest],
     select : int,
     color : str, 
     category : str
@@ -92,15 +80,18 @@ def get_color_category():
 
     return color, category
 
-def image_preds(file: UploadFile) -> Image.Image:
+def image_preds(color, category):
+    '''
+    Predict what the color and category is in predict.py
+    Then find the color with PyTorch from the matrix
+    '''
      # We need this to find the true english labels
     color_labels, category_labels = get_color_category()
 
-    color_py, category_py = image_model_output(file)
-    color_pred = torch.argmax(color_py, dim=1)
-    cat_pred = torch.argmax(category_py, dim=1)
+    color_pred = torch.argmax(color, dim=1)
+    cat_pred = torch.argmax(category, dim=1)
     
     # Find the color and category based on the gotten index
-    color, category = color_labels[color_pred], category_labels[cat_pred]
+    true_color, true_category = color_labels[color_pred], category_labels[cat_pred]
 
-    return color, category
+    return true_color, true_category
