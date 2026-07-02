@@ -53,7 +53,7 @@ class ClothingRequest(BaseModel):
         param = param.strip().lower()
 
         if not param:
-            raise ValueError('Field cannot be empty')
+           raise ValueError('Field cannot be empty')
         
         return params
    
@@ -62,25 +62,21 @@ def clean_domain(cls, v):
     
 @app.post("/upload")
 async def upload(
-    color: str = Form(...),
-    category: str = Form(...),
-    size : str = Form(...),
-    original_price: str = Form(...),
+    size: str = Form(...),
+    price: str = Form(...),
     file: UploadFile = File(...)
     ):
     try:
         contents = await file.read()
         image = Image.open(io.BytesIO(contents)).convert("RGB")
+
+        return image, price, size
         inputs = ClothingRequest(
             color = color,
             category = category,
             size = size,
             original_price = original_price
         )
-        return {
-            'numerical' : inputs.model_dump(),
-            'image': image
-        }
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors())
 

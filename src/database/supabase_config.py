@@ -9,6 +9,8 @@ supabase: Client = create_client(
     os.environ.get('SUPABASE_KEY')
 )
 
+SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET")
+
 # Insert a new row into table
 new_row = {'color' : 'red', 'category' : 'dress', 'size': 'L', 'price': 34.99}
 supabase.table('clothes').insert(new_row).execute()

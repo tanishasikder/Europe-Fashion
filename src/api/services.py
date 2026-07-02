@@ -14,6 +14,10 @@ from api.dependencies import get_stats_model
 from pydantic import BaseModel
 from typing import Optional, List
 from schemas.input import ClothingRequest
+from supabase import create_client, Client
+from dotenv import load_dotenv
+
+load_dotenv()
 
 mean = np.array([0.485, 0.456, 0.406])
 std = np.array([0.229, 0.224, 0.225])
@@ -52,24 +56,12 @@ def image_model_output(color, cloth_type):
     }
 
 def get_user_params(
-    # Select is the task the user wants
-    matrix: List[ClothingRequest],
-    select : int,
-    color : str, 
-    category : str
+    matrix: List[ClothingRequest]
 ):
     numerical_outputs = []
     # Predict with the other model
-    for data in matrix:
-        user_params = {
-            'size' : data.size,
-            'catalog price' : data.catalog_price,
-            'channel' : data.channel,
-            'original price' : data.original_price
-        }
-        result = get_stats_model.clothing_predict([color, category, user_params, select])
-        numerical_outputs.append(result.tolist())
-        return numerical_outputs
+    result = get_stats_model.clothing_predict(matrix)
+    return result.tolist()
 
 # Loops through the file names and stores all colors and categories
 def get_color_category():

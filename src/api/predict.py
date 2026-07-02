@@ -48,13 +48,12 @@ async def image_model_output(contents: Image.Image):
     
 async def get_user_params(
     # Select is the task the user wants
+    # matrix has color, category, size, and price
     matrix: List[ClothingRequest],
     select : int,
-    color : str, 
-    category : str
 ):
     try:
-        numerical_outputs = get_user_params(matrix, select, color, category)
+        numerical_outputs = get_user_params(matrix)
         return numerical_outputs
     except Exception as e:
         raise HTTPException(status_code=500, detail="Sorry. Prediction Failed")

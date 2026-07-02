@@ -147,9 +147,12 @@ def train_model(X, y):
 
 X, y = initialization()
 
+answers = []
+
 for num in range(3):
     features, predicts = split(X, y, num)
-    train_model(features, predicts)
+    results = train_model(features, predicts)
+    answers.append(results)
 
 
 
