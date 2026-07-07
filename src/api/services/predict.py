@@ -6,9 +6,9 @@ from pydantic import BaseModel
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
-from rag import get_rag_response
-from services import image_model_output
-from services import get_user_params
+from api.services.rag import get_rag_response
+from api.services.services import image_model_output
+from api.services.services import get_user_params
 from schemas.input import input
 from schemas.input import ClothingRequest
 

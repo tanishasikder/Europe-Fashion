@@ -9,8 +9,8 @@ from torchvision import transforms
 import torchvision.models as models
 import numpy as np
 from datetime import datetime, timedelta
-from api.dependencies import get_image_model
-from api.dependencies import get_stats_model
+from api.dependencies.dependencies import get_image_model
+from api.dependencies.dependencies import get_stats_model
 from pydantic import BaseModel
 from typing import Optional, List
 from schemas.input import ClothingRequest
@@ -35,7 +35,7 @@ data_transforms = transforms.Compose([
     transforms.Normalize(mean, std)
 ])
 
-
+'''
 def remove_expired_images():
     # Remove images after an hour
     for key, data in list(image_storage.items()):
@@ -54,7 +54,7 @@ def image_model_output(color, cloth_type):
         'features': [color, cloth_type],
         'uploaded': datetime.now()
     }
-
+'''
 def get_user_params(
     matrix: List[ClothingRequest]
 ):

@@ -47,12 +47,10 @@ class ClothingRequest(BaseModel):
     # Field level validator. Runs automatically
 
     # Checks if theres an empty field
-    @field_validator("color, category, size") # no original_price it is a float
+    @field_validator("color", "category", "size") # no original_price it is a float
     @classmethod
-    def verify_inputs(params):
-        param = param.strip().lower()
-
-        if not param:
+    def verify_inputs(cls, params):
+        if not params:
            raise ValueError('Field cannot be empty')
         
         return params
@@ -62,21 +60,23 @@ def clean_domain(cls, v):
     
 @app.post("/upload")
 async def upload(
-    size: str = Form(...),
-    price: str = Form(...),
-    file: UploadFile = File(...)
+        file: UploadFile = File(...),
+        size: str = Form(...),
+        price: str = Form(...)
     ):
     try:
         contents = await file.read()
         image = Image.open(io.BytesIO(contents)).convert("RGB")
 
-        return image, price, size
+        #return image, price, size
+
         inputs = ClothingRequest(
             color = color,
             category = category,
             size = size,
             original_price = original_price
         )
+
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors())
 

@@ -13,7 +13,7 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      background: rgb(92, 228, 255);
+      background: rgb(0, 213, 255);
       min-height: 100vh;
       padding: 20px;
     }
@@ -34,6 +34,20 @@
       color: rgba(255, 255, 255, 0.9);
       text-align: center;
       margin-bottom: 30px;
+      font-size: 1.1rem;
+    }
+
+    .subtitle1 {
+      color: rgba(255, 255, 255, 0.9);
+      text-align: center;
+      margin-bottom: 3px;
+      font-size: 1.1rem;
+    }
+
+    .subtitle2 {
+      color: rgba(255, 255, 255, 0.9);
+      text-align: center;
+      margin-bottom: 40px;
       font-size: 1.1rem;
     }
 
@@ -115,7 +129,7 @@
       transform: none;
     }
 
-    .results, .status {
+    .status {
       margin-top: 20px;
       padding: 15px;
       background: #f8f9ff;
@@ -126,16 +140,12 @@
       text-align: left;
     }
 
-    .results.show, .status.show {
+    .status.show {
       display: block;
     }
 
-    .results strong, .status strong {
+    .status strong {
       color: #667eea;
-    }
-
-    .hidden {
-      display: none;
     }
 
     .form-group {
@@ -150,8 +160,7 @@
       text-align: left;
     }
 
-    .form-group input,
-    .form-group select {
+    .form-group input {
       width: 100%;
       padding: 12px;
       border: 2px solid #e0e0e0;
@@ -160,8 +169,7 @@
       transition: border-color 0.3s;
     }
 
-    .form-group input:focus,
-    .form-group select:focus {
+    .form-group input:focus {
       outline: none;
       border-color: #667eea;
     }
@@ -178,16 +186,6 @@
       color: #060;
     }
 
-    .loading {
-      display: inline-block;
-      animation: pulse 1.5s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
     pre {
       white-space: pre-wrap;
       word-break: break-all;
@@ -199,8 +197,9 @@
 <body>
   <div class="container">
     <h1>AI Clothing Analyzer</h1>
-    <p class="subtitle">Get Consumer Predictions for Products</p>
-
+    <p class="subtitle">Get Consumer Predictions for Clothing Products</p>
+    <p class="subtitle1">A tool to help you understand how your</p>
+    <p class="subtitle2">clothing will do in the current market</p>
     <!-- Image Upload Section -->
     <div class="card">
       <h2>1. Upload Clothing Image</h2>
@@ -210,40 +209,21 @@
       </div>
     </div>
 
-    <!-- Business Info Form -->
-    <div class="card" id="businessFormCard">
-      <h2>2. Enter Business Details</h2>
-      <form id="businessForm">
+    <!-- Size + Price Form -->
+    <div class="card">
+      <h2>2. Enter Size and Price</h2>
+      <form id="uploadForm">
         <div class="form-group">
           <label for="size">Size</label>
           <input type="text" id="size" placeholder="e.g. XS, S, M, L, XL" required />
         </div>
 
         <div class="form-group">
-          <label for="catalogPrice">Catalog Price ($)</label>
-          <input type="number" id="catalogPrice" step="0.01" placeholder="Number Between 5-1000" required />
+          <label for="price">Price ($)</label>
+          <input type="number" id="price" step="0.01" min="0" placeholder="e.g. 49.99" required />
         </div>
 
-        <div class="form-group">
-          <label for="channel">Sales Channel</label>
-          <select id="channel" required>
-            <option value="">Select channel</option>
-            <option value="online">App Mobile</option>
-            <option value="retail">E-Commerce</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="originalPrice">Original Price ($)</label>
-          <input type="number" id="originalPrice" step="0.01" placeholder="Number Between 5-1000" required />
-        </div>
-
-        <div class="form-group">
-          <label for="selectIndex">Select Index</label>
-          <input type="number" id="selectIndex" placeholder="e.g. 0" value="0" required />
-        </div>
-
-        <button type="submit" id="submitBtn">Evaluate</button>
+        <button type="submit" id="submitBtn">Submit</button>
       </form>
       <div id="submissionStatus" class="status"></div>
     </div>
@@ -252,7 +232,7 @@
   <script>
     const imageUpload = document.getElementById("imageUpload");
     const imagePreview = document.getElementById("imagePreview");
-    const businessForm = document.getElementById("businessForm");
+    const uploadForm = document.getElementById("uploadForm");
     const submissionStatus = document.getElementById("submissionStatus");
     const submitBtn = document.getElementById("submitBtn");
 
@@ -268,12 +248,11 @@
       };
       reader.readAsDataURL(file);
 
-      // Reset status when new image is selected
       submissionStatus.classList.remove("show", "error", "success");
     });
 
-    // Handle form submission — sends image + params together to /predict
-    businessForm.addEventListener("submit", async (e) => {
+    // Handle form submission — sends file, size, and price to /predict
+    uploadForm.addEventListener("submit", async (e) => {
       e.preventDefault();
 
       const file = imageUpload.files[0];
@@ -282,37 +261,25 @@
         return;
       }
 
-      // Build the ClothingParameters object (wrapped in a 2D matrix as the backend expects)
-      const params = {
-        size: document.getElementById("size").value,
-        catalog_price: parseFloat(document.getElementById("catalogPrice").value),
-        channel: document.getElementById("channel").value,
-        original_price: parseFloat(document.getElementById("originalPrice").value),
-        unit_price: parseFloat(document.getElementById("unitPrice").value)
-      };
+      const size = document.getElementById("size").value;
+      const price = document.getElementById("price").value;
 
-      const select = parseInt(document.getElementById("selectIndex").value, 10);
-
-      // FastAPI /predict expects:
-      //   - file: UploadFile  (multipart)
-      //   - matrix: List[List[ClothingParameters]]  (JSON body field)
-      //   - select: int  (JSON body field)
-      //
-      // FastAPI's Body() fields alongside a File() must be sent as multipart form data,
-      // with JSON-encoded strings for the complex fields.
+      // FastAPI /predict expects three multipart form fields:
+      //   - file: UploadFile
+      //   - size: str
+      //   - price: float
       const formData = new FormData();
       formData.append("file", file);
-      // matrix is a 2D list — one row with one ClothingParameters object
-      formData.append("matrix", JSON.stringify([[params]]));
-      formData.append("select", select);
+      formData.append("size", size);
+      formData.append("price", price);
 
       submitBtn.disabled = true;
-      submissionStatus.innerHTML = '<span class="loading">Sending data to backend... 🧠</span>';
+      submissionStatus.innerHTML = "Giving you magic...";
       submissionStatus.classList.add("show");
       submissionStatus.classList.remove("error", "success");
 
       try {
-        const res = await fetch("http://localhost:8000/predict", {
+        const res = await fetch("http://localhost:8000/upload", {
           method: "POST",
           body: formData
         });
@@ -324,20 +291,14 @@
 
         const result = await res.json();
 
-        // Backend returns: [category, color, numerical_outputs]
-        const [category, color, numerical_outputs] = result;
-
         submissionStatus.innerHTML = `
-          <strong>Prediction Complete ✅</strong><br><br>
-          <strong>Detected Category:</strong> ${category}<br>
-          <strong>Detected Color:</strong> ${color}<br><br>
-          <strong>Prediction Output:</strong>
-          <pre>${JSON.stringify(numerical_outputs, null, 2)}</pre>
+          <strong>Received by backend</strong><br><br>
+          <pre>${JSON.stringify(result, null, 2)}</pre>
         `;
         submissionStatus.classList.add("success");
       } catch (err) {
-        console.error("Prediction error:", err);
-        submissionStatus.innerHTML = `<strong>Error with Prediction</strong><br><small>${err.message}</small>`;
+        console.error("Submission error:", err);
+        submissionStatus.innerHTML = `<strong>Error submitting form</strong><br><small>${err.message}</small>`;
         submissionStatus.classList.add("error");
       } finally {
         submitBtn.disabled = false;

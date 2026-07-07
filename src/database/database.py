@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 load_dotenv()
 
 SUPABASE_URL = os.environ.get('SUPABASE_URL')
-SUPABASE_BUCKET = os.environ.get('SUPABASE_URL')
+BUCKET_NAME = os.environ.get('BUCKET_NAME')
 SUPABASE_KEY = os.environ.get('SUPABASE_KEY')
 
 supabase: Client = create_client(
@@ -20,9 +20,13 @@ supabase: Client = create_client(
     SUPABASE_KEY
 )
 
+SUPABASE_BUCKET = supabase.storage.from_(BUCKET_NAME)
+
 # Image is uploaded somewhere else the raw bytes are just passed here
 def store_image(matrix: List[ClothingRequest],
-                image: bytes = None):
+                image: bytes = None,
+                SUPABASE_URL = None, 
+                supabase : Client = None):
     
     image_url = None
     if image and image.filename != "":
