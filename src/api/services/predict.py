@@ -11,8 +11,21 @@ from api.services.services import image_model_output
 from api.services.services import get_user_params
 from schemas.input import input
 from schemas.input import ClothingRequest
+from torchvision import transforms
+import numpy as np
 
 router = APIRouter()
+
+mean = np.array([0.485, 0.456, 0.406])
+std = np.array([0.229, 0.224, 0.225])
+
+# Transformations for user input images
+data_transforms = transforms.Compose([
+    transforms.CenterCrop(224),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+    transforms.Normalize(mean, std)
+])
 
 @router.get("/query/")
 async def query_rag_system(query: str):
@@ -36,11 +49,12 @@ async def initialize_preds(numerical_outputs):
     return response
 
 # Gets the model predictions for color and clothing type
-async def image_model_output(contents: Image.Image):
+async def image_output(contents: Image.Image):
     try:
+        transformed = data_transforms(contents)
         # Perform inference
         with torch.no_grad():
-            color, cloth_type = image_model_output(contents)
+            color, cloth_type = image_model_output(transformed)
         
         return color, cloth_type
     except Exception as e:

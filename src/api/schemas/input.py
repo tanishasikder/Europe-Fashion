@@ -7,8 +7,8 @@ from pydantic import ValidationError
 import json
 from PIL import Image
 import io
-from validator import get_user_params
-
+#from validator import get_user_params
+from api.services.predict import image_model_output
 app = FastAPI()
 
 # Basic health check to ensure server is functioning
@@ -67,15 +67,16 @@ async def upload(
     try:
         contents = await file.read()
         image = Image.open(io.BytesIO(contents)).convert("RGB")
-
-        #return image, price, size
+        color, category = image_model_output(image)
 
         inputs = ClothingRequest(
             color = color,
             category = category,
             size = size,
-            original_price = original_price
+            original_price = price
         )
+
+        return inputs
 
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors())

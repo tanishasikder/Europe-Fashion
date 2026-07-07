@@ -38,7 +38,7 @@ data_transforms = {
     ])
 }
 
-data_dir = r'C:\Users\Tanis\Downloads\Europe-Fashion\Fashion_Images'
+data_dir = r'C:/Users/Tanis\Downloads/Europe-Fashion/Fashion_Images'
 sets = ['train', 'val']
 
 def get_valid_image(path):
