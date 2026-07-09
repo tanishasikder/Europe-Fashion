@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 import os
 import sys
 import torch
@@ -18,15 +19,7 @@ stats_model = load(path)
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-# Loops through the file names and stores all colors and categories
-def get_color_category():
-    path = 'Fashion_Images/train'
-    files = os.listdir(path)
-    color = [file[:file.index('_')] for file in files]
-    category = [file[file.index('_')+1:] for file in files]
-
-    return color, category
-
+@asynccontextmanager
 def initialize_stats_model():
     path = parent / "stats_model.joblib"
     # deffo wrong try again
@@ -34,9 +27,8 @@ def initialize_stats_model():
     return stats_model
 
 def initialize_image_model():
-    color, category = get_color_category()
     # Loading in the clothing predict model with error handling 
-    image_model = CNN(color, category)
+    image_model = CNN()
     # Loading in custom weights
     torch_path = parent / "image_extraction_model.pth"
     image_model.load_state_dict(torch.load(torch_path, map_location='cpu'))

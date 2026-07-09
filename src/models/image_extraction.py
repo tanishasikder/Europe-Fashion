@@ -19,7 +19,11 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # CNN class to classify image features
 class CNN(nn.Module):
     def __init__(self, color_names, type_names):
-        super().__init__()
+        self.color_names = color_names
+        self.type_names = type_names
+    
+    def train(self, color_names, type_names):
+        super().__init__(color_names, type_names)
         # Load in the pretrained resnet model
         model = models.vgg16(pretrained=True)
 
@@ -41,6 +45,8 @@ class CNN(nn.Module):
         self.to(device)
     
     def forward(self, x):
+        # Give image a 4th dimenion
+        x = x.unsqueeze(0)
         # Gather features and assign it to the color and type heads
         x = self.vgg16_features(x)
         x = self.avgpool(x)
