@@ -1,14 +1,7 @@
 import torch
-import os
-import copy
 import torch.nn as nn
 import torchvision.models as models
-import torchvision.transforms as transforms
-from torchvision import datasets, transforms
-import torch.optim as optim
-from torch.optim import lr_scheduler
-from torch.utils.data import DataLoader
-import torch.multiprocessing as mp
+from torchvision.models import vgg16, VGG16_Weights
 
 import numpy as np
 from PIL import Image
@@ -19,13 +12,11 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # CNN class to classify image features
 class CNN(nn.Module):
     def __init__(self, color_names, type_names):
+        super().__init__()
         self.color_names = color_names
         self.type_names = type_names
-    
-    def train(self, color_names, type_names):
-        super().__init__(color_names, type_names)
         # Load in the pretrained resnet model
-        model = models.vgg16(pretrained=True)
+        model = models.vgg16(weights=VGG16_Weights.DEFAULT)
 
         # Freeze parameters
         for param in model.features.parameters():
@@ -45,8 +36,6 @@ class CNN(nn.Module):
         self.to(device)
     
     def forward(self, x):
-        # Give image a 4th dimenion
-        x = x.unsqueeze(0)
         # Gather features and assign it to the color and type heads
         x = self.vgg16_features(x)
         x = self.avgpool(x)

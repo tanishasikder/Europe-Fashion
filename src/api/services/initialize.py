@@ -9,6 +9,7 @@ from src.models.image_extraction import CNN
 from pathlib import Path
 import sys
 from joblib import load
+from PIL import Image
 
 # Makes python looks at the parent root directories to find the model
 parent = Path(__file__).parent
@@ -19,19 +20,28 @@ stats_model = load(path)
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-@asynccontextmanager
-def initialize_stats_model():
-    path = parent / "stats_model.joblib"
-    # deffo wrong try again
-    stats_model = load(path)
-    return stats_model
+class ImageService:
+    def __init__(self, model_path, transform):
+        self.model = torch.load(model_path)
+        self.transform = transform
+    
+    def predict(self, image: Image.Image):
+        tensor = self.transform(image)
+        with torch.no_grad():
+            color, category = self.model(tensor)
+            # Predict class from logits
+            co_pred = color.argmax(dim=1).item()
+            ca_pred = category.argmax(dim=1).item()
 
-def initialize_image_model():
-    # Loading in the clothing predict model with error handling 
-    image_model = CNN()
-    # Loading in custom weights
-    torch_path = parent / "image_extraction_model.pth"
-    image_model.load_state_dict(torch.load(torch_path, map_location='cpu'))
-    image_model.eval()
+        return co_pred, ca_pred
+    
+class StatsService:
+    def __init__(self, model, color_la, type_la):
+        self.model = model
+        self.color_labels = color_la
+        self.type_label = type_la
 
-    return image_model
+    def predict(self, labels):
+        pred = self.model(labels)
+
+        return pred

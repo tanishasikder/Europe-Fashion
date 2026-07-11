@@ -159,8 +159,7 @@ if __name__ == '__main__':
         replace_type = type[dash+1:]
         type_names[type_index] = replace_type
 
-    model = CNN()
-    model = model.train(color_names, type_names)
+    model = CNN(color_names, type_names)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=1e-4, weight_decay=1e-4)
 
