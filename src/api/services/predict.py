@@ -6,9 +6,9 @@ from pydantic import BaseModel
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
-from api.services.rag import get_rag_response
-from api.services.services import image_model_output
-from api.services.services import get_user_params
+#from rag import get_rag_response
+from services import image_preds
+from services import get_user_params
 from schemas.input import input
 from schemas.input import ClothingRequest
 from torchvision import transforms
@@ -27,6 +27,7 @@ data_transforms = transforms.Compose([
     transforms.Normalize(mean, std)
 ])
 
+'''
 @router.get("/query/")
 async def query_rag_system(query: str):
     try:
@@ -34,6 +35,7 @@ async def query_rag_system(query: str):
         return {"query": query, "response": response}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+'''
 
 #@app.post("/predict")
 async def initialize_preds(numerical_outputs):
@@ -44,17 +46,18 @@ async def initialize_preds(numerical_outputs):
             "Only quantity and item total use original price alongside"
             "the other predictors")
         
-    response = await query_rag_system(query)
+    #response = await query_rag_system(query)
     
-    return response
+    #return response
 
 # Gets the model predictions for color and clothing type
 async def image_output(contents: Image.Image):
     try:
-        transformed = data_transforms(contents)
+        opened = Image.open(contents)
+        transformed = data_transforms(opened)
         # Perform inference
         with torch.no_grad():
-            color, cloth_type = image_model_output(transformed)
+            color, cloth_type = image_preds(transformed)
         
         return color, cloth_type
     except Exception as e:

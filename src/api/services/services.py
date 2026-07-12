@@ -2,14 +2,14 @@ from fastapi import Body, FastAPI, File, HTTPException, UploadFile
 from fastapi import APIRouter, HTTPException
 from PIL import Image
 import os
-from src.database import store_image, remove_expired
+#from src.database import store_image, remove_expired
 import torch
 from torchvision import transforms
 import torchvision.models as models
 import numpy as np
 from supabase import create_client, Client
-from api.dependencies.dependencies import get_image_model
-from api.dependencies.dependencies import get_stats_model
+from src.api.dependencies.dependencies import get_image_model
+from src.api.dependencies.dependencies import get_stats_model
 from pydantic import BaseModel
 from typing import Optional, List
 from schemas.input import ClothingRequest
