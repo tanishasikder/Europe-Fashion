@@ -7,10 +7,11 @@ import os
 from fastapi import Body, FastAPI, File, HTTPException, UploadFile
 import torch
 from PIL import Image
-from schemas.input import ClothingRequest
+from src.api.schemas.input import ClothingRequest
 from typing import Optional, List
-from datetime import datetime, timedelta
-from schemas.input import upload, root
+from src.core import load_models
+from src.api.schemas.input import upload
+
 load_dotenv()
 
 SUPABASE_URL = os.environ.get('SUPABASE_URL')
@@ -24,5 +25,11 @@ supabase: Client = create_client(
 
 SUPABASE_BUCKET = supabase.storage.from_(BUCKET_NAME)
 
-root()
+cloth_model, sales_model = load_models() # Load models at start of application
+
+input = upload()
+
+
+
+
 

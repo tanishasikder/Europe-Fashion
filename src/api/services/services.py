@@ -2,13 +2,12 @@ from fastapi import Body, FastAPI, File, HTTPException, UploadFile
 from fastapi import APIRouter, HTTPException
 from PIL import Image
 import os
-import io
-import uuid
+from src.database import store_image, remove_expired
 import torch
 from torchvision import transforms
 import torchvision.models as models
 import numpy as np
-from datetime import datetime, timedelta
+from supabase import create_client, Client
 from api.dependencies.dependencies import get_image_model
 from api.dependencies.dependencies import get_stats_model
 from pydantic import BaseModel
@@ -22,11 +21,6 @@ load_dotenv()
 mean = np.array([0.485, 0.456, 0.406])
 std = np.array([0.229, 0.224, 0.225])
 
-# Temporary storage for image features
-# Store image_id, image characteristics, when uploaded
-# (so it can expire after an hour) for predictions
-image_storage = {}
-
 # Transformations for user input images
 data_transforms = transforms.Compose([
     transforms.CenterCrop(224),
@@ -35,26 +29,6 @@ data_transforms = transforms.Compose([
     transforms.Normalize(mean, std)
 ])
 
-'''
-def remove_expired_images():
-    # Remove images after an hour
-    for key, data in list(image_storage.items()):
-        upload = image_storage[key]['uploaded']
-        if datetime.now() >= upload + timedelta(hours=1):
-            image_storage.pop(key)
-
-# Stores the image with the timestamp
-def image_model_output(color, cloth_type):
-    remove_expired_images()
-    # Create image ID
-    image_id = str(uuid.uuid4())
-    image = data_transforms(image).unsqueeze(0)
-
-    image_storage[image_id] = {
-        'features': [color, cloth_type],
-        'uploaded': datetime.now()
-    }
-'''
 def get_user_params(
     matrix: List[ClothingRequest]
 ):

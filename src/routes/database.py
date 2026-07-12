@@ -5,9 +5,13 @@ import os
 from fastapi import Body, FastAPI, File, HTTPException, UploadFile
 import torch
 from PIL import Image
-from schemas.input import ClothingRequest
+from src.api.schemas.input import ClothingRequest
 from typing import Optional, List
 from datetime import datetime, timedelta
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from postgrest.exceptions import APIError
+import httpx
+import logging
 
 load_dotenv()
 
@@ -21,6 +25,9 @@ supabase: Client = create_client(
 )
 
 SUPABASE_BUCKET = supabase.storage.from_(BUCKET_NAME)
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('supabase-app')
 
 # Image is uploaded somewhere else the raw bytes are just passed here
 def store_image(matrix: List[ClothingRequest],
@@ -45,18 +52,37 @@ def store_image(matrix: List[ClothingRequest],
 
     return RedirectResponse("/", status_code=303)
 
-def remove_expired_images():
+@retry(
+    retry=retry_if_exception_type((httpx.TimeOutException, httpx.ConnectError)),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=8)
+)
+def remove_expired():
     # Calculating the threshold of expiration
     time = datetime.now() - timedelta(hours=2)
     # Turning time into the format Supabase wants
     exp = time.isoformat()
 
-    response = (
-        supabase.table('clothes')
-        .delete()
-        .select('created_at')
-        .lt(exp)
-        .execute()
-    )
+    try:
+        response = (
+            supabase.table('clothes')
+            .delete()
+            .select('created_at')
+            .lt('created_at', exp)
+            .execute()
+        )
+        if not response.data:
+            logger.warning(f'Delete matched 0 rows for exp={exp}')
 
-    return response
+        return response
+
+    except APIError as e:
+        # Postgrest/Supabase returned a structured error — bad filter, RLS violation
+        logger.error(f'Supabase API Error: {e.message} | code={e.code} | details={e.details}')
+        raise
+    except httpx.TimeoutException:
+        logger.error('Supabase request timed out')
+        raise
+    except httpx.ConnectError:
+        logger.error('Could not reacj Supabase - network/DNS issue')
+        raise

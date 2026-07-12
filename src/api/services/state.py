@@ -12,7 +12,7 @@ import sys
 from joblib import load
 from PIL import Image
 import numpy as np
-from src.api.services.initialize import StatsService
+from api.schemas.initialize import StatsService
 
 # Makes python looks at the parent root directories to find the model
 parent = Path(__file__).parent
