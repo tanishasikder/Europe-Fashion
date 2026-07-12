@@ -12,7 +12,7 @@ from src.api.dependencies.dependencies import get_image_model
 from src.api.dependencies.dependencies import get_stats_model
 from pydantic import BaseModel
 from typing import Optional, List
-from schemas.input import ClothingRequest
+from src.api.schemas.input import ClothingRequest
 from supabase import create_client, Client
 from dotenv import load_dotenv
 

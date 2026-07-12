@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, Depends, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
-from src.database import supabase, SUPABASE_BUCKET, SUPABASE_URL
+from src.routes.database import supabase, SUPABASE_BUCKET, SUPABASE_URL
 from models import image_extracton
 from fastapi.templating import Jinja2Templates
 import os

@@ -8,7 +8,7 @@ import json
 from PIL import Image
 import io
 #from validator import get_user_params
-from api.services.predict import image_model_output
+from src.api.services.predict import image_output
 app = FastAPI()
 
 # Basic health check to ensure server is functioning
@@ -67,7 +67,7 @@ async def upload(
     try:
         contents = await file.read()
         image = Image.open(io.BytesIO(contents)).convert("RGB")
-        color, category = image_model_output(image)
+        color, category = image_output(image)
 
         inputs = ClothingRequest(
             color = color,
