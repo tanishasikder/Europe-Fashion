@@ -30,6 +30,6 @@ cloth_model, sales_model = load_models() # Load models at start of application
 input = upload()
 
 
-
+# GO ON CLAUDE AND FIX ERRORS
 
 
