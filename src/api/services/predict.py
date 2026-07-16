@@ -7,7 +7,7 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 #from rag import get_rag_response
-from src.api.services.services import image_preds
+from src.api.dependencies.depend import get_image_model, get_stats_model
 from src.api.services.services import get_user_params
 from src.api.schemas.input import input
 from src.api.schemas.input import ClothingRequest
@@ -57,7 +57,7 @@ async def image_output(contents: Image.Image):
         transformed = data_transforms(opened)
         # Perform inference
         with torch.no_grad():
-            color, cloth_type = image_preds(transformed)
+            color, cloth_type = get_image_model(transformed)
         
         return color, cloth_type
     except Exception as e:
@@ -70,7 +70,7 @@ async def get_user_params(
     select : int,
 ):
     try:
-        numerical_outputs = get_user_params(matrix)
+        numerical_outputs = get_stats_model(matrix)
         return numerical_outputs
     except Exception as e:
         raise HTTPException(status_code=500, detail="Sorry. Prediction Failed")

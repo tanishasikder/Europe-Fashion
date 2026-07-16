@@ -3,13 +3,16 @@ from PIL import Image
 import asyncio
 import os
 import sys
-
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from src.api.services.predict import get_user_params, image_output, initialize_preds, query_rag_system
+
+from src.api.dependencies.depend import get_image_model
+from src.core.lifespan import lifespan
+from fastapi import FastAPI
+app = FastAPI(lifespan=lifespan)
 
 @pytest.mark.asyncio
 async def test_image_output():
-    color, cloth_type = await image_output('tests/test_clothing.jpg')
+    color, cloth_type = await get_image_model('tests/test_clothing.jpg')
     assert color.name == 'red'
     assert cloth_type.name == 'dress'
 

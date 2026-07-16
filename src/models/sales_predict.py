@@ -11,6 +11,14 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.svm import SVR
 from pathlib import Path
 import yaml
+from dotenv import load_dotenv
+import dagshub
+import os
+
+OWNER = os.getenv('DAGSHUB_OWNER')
+REPO = os.getenv('DAGSHUB_REPO')
+
+dagshub.init(repo_owner=OWNER, repo_name=REPO, mlflow=True)
 
 # Best Practice for locating parent directories
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -76,9 +84,9 @@ def split(X, y, num):
     # Predict item total based on original price and channel
     # Need to handle correlation
     feature_indices = {
-        0: [0, 1, 2, 3, 4, 7],  # Features for profit margin    
-        1: [0, 1, 2, 3, 4, 5],   # Features for quantity     
-        2: [0, 1, 2, 3, 4, 6, 7]    # Features for profit
+        0: [0, 1, 2, 4, 7],  # Features for profit margin    
+        1: [0, 1, 2, 4],   # Features for quantity     
+        2: [0, 1, 2, 4, 7]    # Features for profit
     }
     features = X.iloc[:, feature_indices[num]]
     predicts = y.iloc[:, num]

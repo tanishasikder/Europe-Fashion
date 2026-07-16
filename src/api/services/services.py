@@ -8,8 +8,8 @@ from torchvision import transforms
 import torchvision.models as models
 import numpy as np
 from supabase import create_client, Client
-from src.api.dependencies.dependencies import get_image_model
-from src.api.dependencies.dependencies import get_stats_model
+from src.api.dependencies.depend import get_image_model
+from src.api.dependencies.depend import get_stats_model
 from pydantic import BaseModel
 from typing import Optional, List
 from src.api.schemas.input import ClothingRequest

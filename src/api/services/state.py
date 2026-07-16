@@ -45,7 +45,6 @@ async def initialize_stats_model(StatsService):
     path = parent / "stats_model.joblib"
     # deffo wrong try again
     stats_model = load(path)
-    yield
     return StatsService(stats_model)
 
 async def initialize_image_model(CNN):
@@ -55,7 +54,6 @@ async def initialize_image_model(CNN):
     # Loading in custom weights
     torch_path = parent / "image_extraction_model.pth"
     image_model.load_state_dict(torch.load(torch_path, map_location=device))
-    yield
     image_model.eval()
 
     return image_model
