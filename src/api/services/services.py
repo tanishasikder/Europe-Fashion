@@ -48,8 +48,8 @@ def get_color_category():
 
 def image_preds(color, category):
     '''
-    Predict what the color and category is in predict.py
-    Then find the color with PyTorch from the matrix
+    Get the english words for the color and category.
+    This is used after prediction
     '''
      # We need this to find the true english labels
     color_labels, category_labels = get_color_category()

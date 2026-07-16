@@ -11,6 +11,8 @@ from src.api.schemas.input import ClothingRequest
 from typing import Optional, List
 from src.core import load_models
 from src.api.schemas.input import upload
+from core.lifespan import lifespan
+from fastapi import FastAPI
 
 load_dotenv()
 
@@ -22,6 +24,8 @@ supabase: Client = create_client(
     SUPABASE_URL, 
     SUPABASE_KEY
 )
+
+app = FastAPI(lifespan=lifespan)
 
 SUPABASE_BUCKET = supabase.storage.from_(BUCKET_NAME)
 

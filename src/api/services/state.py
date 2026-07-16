@@ -6,13 +6,11 @@ import torch
 from torchvision import transforms
 import torchvision.models as models
 # Loading in the custom model
-from src.models.image_extraction import CNN
 from pathlib import Path
 import sys
 from joblib import load
 from PIL import Image
 import numpy as np
-from api.schemas.initialize import StatsService
 
 # Makes python looks at the parent root directories to find the model
 parent = Path(__file__).parent
@@ -43,14 +41,14 @@ def get_color_category():
     return color, category
 
 @asynccontextmanager
-async def initialize_stats_model(app: FastAPI):
+async def initialize_stats_model(StatsService):
     path = parent / "stats_model.joblib"
     # deffo wrong try again
     stats_model = load(path)
     yield
     return StatsService(stats_model)
 
-async def initialize_image_model(app: FastAPI):
+async def initialize_image_model(CNN):
     color, category = get_color_category()
     # Loading in the clothing predict model with error handling 
     image_model = CNN(color, category)
