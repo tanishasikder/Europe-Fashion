@@ -83,7 +83,6 @@ def train_model(X, y):
     c = [col for col in categorical if col in X.columns]
     n = [col for col in numerical if col in X.columns]
 
-    greatest_mse = float('inf')
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
 
     # These indices skew the data negatively
@@ -124,12 +123,10 @@ def train_model(X, y):
 
         mse = mean_squared_error(real_y_test, real_pred)
 
-        if mse < greatest_mse:
-            # Log metrics and model
-            greatest_mse = mse
-            mlflow.log_metric("mse", mse)
-            model_info = mlflow.sklearn.log_model(model, name="europe-fashion-sales-model")
-            mlflow.register_model(model_uri=f"models:/{model_info.model_id}", name="europe-fashion-sales-model")
+        # Log metrics and model
+        mlflow.log_metric("mse", mse)
+        model_info = mlflow.sklearn.log_model(model, name="europe-fashion-sales-model")
+        mlflow.register_model(model_uri=f"models:/{model_info.model_id}", name="europe-fashion-sales-model")
         mlflow.end_run()
 
 if __name__ == "__main__":
