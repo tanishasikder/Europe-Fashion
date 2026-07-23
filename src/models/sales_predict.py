@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import PowerTransformer
-from sklearn.model_selection import LeaveOneOut
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import mlflow
 from sklearn.preprocessing import StandardScaler
@@ -15,11 +15,6 @@ from dotenv import load_dotenv
 import dagshub
 import os
 
-OWNER = os.getenv('DAGSHUB_OWNER')
-REPO = os.getenv('DAGSHUB_REPO')
-
-dagshub.init(repo_owner=OWNER, repo_name=REPO, mlflow=True)
-
 # Best Practice for locating parent directories
 BASE_DIR = Path(__file__).resolve().parents[1]
 BASE_DIR1 = Path(__file__).resolve().parents[2]
@@ -31,28 +26,16 @@ categorical = ['category', 'color', 'size', 'channel']
 numerical = ['catalog_price', 'original_price', 'unit_price', 'cost_price']
 
 def initialization():
-    #data = pd.read_excel('data/Fashion Data/DataPenjualanFashion.xlsx', sheet_name=None)
-
     with open(CONFIG_PATH, 'r') as f:
         config = yaml.safe_load(f)
     
     data_path = BASE_DIR1 / config['dataset']['raw_path']
     #print(f'data path is this: {data_path}')
     data = pd.read_excel(data_path, sheet_name=None)
-    print(data_path)
-    print(data)
 
     # Separating the data into dataframes
     products = data['ProductItems']
     sales_items = data['SalesItems']
-    pivot = data['Pivot Table']
-
-    pivot = pivot.dropna()
-    pivot = pivot.drop(19)
-    # Pivot now just shows the categories and color of the clothing options
-    pivot = pivot.rename(columns={'Unnamed: 0' : 'Row Labels', 'Unnamed: 1' : 'Dresses', 'Unnamed: 2' : 'Pants', 
-                        'Unnamed: 3' : 'Shoes','Unnamed: 4' : 'Sleepwear', 'Unnamed: 5' : 'T-Shirts', 
-                        'Unnamed: 6' : 'Grand Total'})
 
     # Dataframe for the total cost to make the items and how much customers spent for the items
     product_compare = sales_items.merge(
@@ -96,71 +79,71 @@ def split(X, y, num):
 
 def train_model(X, y):
     np.random.seed(42)
-    cv = LeaveOneOut()
 
     c = [col for col in categorical if col in X.columns]
     n = [col for col in numerical if col in X.columns]
 
-    greatest_mse = 0.0
-    for train_index, test_index in cv.split(X):
-        X_train, X_test = X.iloc[train_index], X.iloc[test_index]
-        y_train, y_test = y.iloc[train_index], y.iloc[test_index]
+    greatest_mse = float('inf')
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
 
-        # These indices skew the data negatively
-        mask = np.ones(len(X_train), dtype=bool)
-        mask[[291, 263]] = False
-        y_train = y_train[mask]
-        X_train = X_train[mask]
+    # These indices skew the data negatively
+    mask = np.ones(len(X_train), dtype=bool)
+    mask[[291, 263]] = False
+    y_train = y_train[mask]
+    X_train = X_train[mask]
 
-        one_hot = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
-        
-        categorical_X_train = one_hot.fit_transform(X_train[c])
-        categorical_X_test = one_hot.transform(X_test[c])
+    one_hot = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
+    
+    categorical_X_train = one_hot.fit_transform(X_train[c])
+    categorical_X_test = one_hot.transform(X_test[c])
 
-        # Apply transformations to skewed data
-        yeo_johnson = PowerTransformer(method='yeo-johnson', standardize=True)
-        y_train = yeo_johnson.fit_transform(y_train.to_frame())
-        y_test = yeo_johnson.transform(y_test.to_frame())
+    # Apply transformations to skewed data
+    yeo_johnson = PowerTransformer(method='yeo-johnson', standardize=True)
+    y_train = yeo_johnson.fit_transform(y_train.to_frame())
+    y_test = yeo_johnson.transform(y_test.to_frame())
 
-        # Profit margin, quantity, and item total are on different scales
-        X_scaler = StandardScaler()
+    # Profit margin, quantity, and item total are on different scales
+    X_scaler = StandardScaler()
 
-        num_X_train = X_scaler.fit_transform(X_train[n])
-        num_X_test = X_scaler.transform(X_test[n])
+    num_X_train = X_scaler.fit_transform(X_train[n])
+    num_X_test = X_scaler.transform(X_test[n])
 
-        X_train = np.hstack([categorical_X_train, num_X_train])
-        X_test = np.hstack([categorical_X_test, num_X_test])
+    X_train = np.hstack([categorical_X_train, num_X_train])
+    X_test = np.hstack([categorical_X_test, num_X_test])
 
-        with mlflow.start_run():
-            model = SVR(kernel='rbf', C=1.0, gamma='scale')
+    with mlflow.start_run():
+        model = SVR(kernel='rbf', C=1.0, gamma='scale')
 
-            model.fit(X_train, y_train.ravel())
-            mlflow.log_params(model.get_params())
-            y_pred = model.predict(X_test)
+        model.fit(X_train, y_train.ravel())
+        mlflow.log_params(model.get_params())
+        y_pred = model.predict(X_test)
 
-            # Bring it back to the same dimension
-            real_pred = yeo_johnson.inverse_transform(y_pred.reshape(-1, 1))
-            real_y_test = yeo_johnson.inverse_transform(y_test)
+        # Bring it back to the same dimension
+        real_pred = yeo_johnson.inverse_transform(y_pred.reshape(-1, 1))
+        real_y_test = yeo_johnson.inverse_transform(y_test)
 
-            mse = mean_squared_error(real_y_test, real_pred)
-            print(mse)
-            print(f'pred: {y_pred}')
+        mse = mean_squared_error(real_y_test, real_pred)
 
-            if mse > greatest_mse:
-                # Log metrics and model
-                mlflow.log_metric("mse", mse)
-                mlflow.sklearn.log_model(model, "sales_predict_model")
-
+        if mse < greatest_mse:
+            # Log metrics and model
+            greatest_mse = mse
+            mlflow.log_metric("mse", mse)
+            model_info = mlflow.sklearn.log_model(model, name="europe-fashion-sales-model")
+            mlflow.register_model(model_uri=f"models:/{model_info.model_id}", name="europe-fashion-sales-model")
         mlflow.end_run()
 
-X, y = initialization()
+if __name__ == "__main__":
+    OWNER = os.getenv('DAGSHUB_OWNER')
+    REPO = os.getenv('DAGSHUB_REPO')
 
-answers = []
+    dagshub.init(repo_owner=OWNER, repo_name=REPO, mlflow=True)
 
-for num in range(3):
-    features, predicts = split(X, y, num)
-    results = train_model(features, predicts)
-    answers.append(results)
+    X, y = initialization()
+
+    for num in range(3):
+        features, predicts = split(X, y, num)
+        results = train_model(features, predicts)
+
 
 
 
