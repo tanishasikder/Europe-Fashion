@@ -1,3 +1,31 @@
+Scrape product variant prices             
+ Scrape sellers         
+ maxSearchPagesPerStartUrl                                 
+ offers               
+ monthlyPurchaseVolume            
+ aiReviewsSummary               
+ priceRange            
+ isAmazonChoice                
+ bestsellerRanks              
+ productOverview          
+ variantAttributes                
+ starsBreakdown             
+ stars                
+ condition          
+ shippingPrice           
+ listPrice             
+ price                   
+ title
+
+
+
+
+
+
+
+
+
+
 SEPARATE THE TRAINING FROM THE ACTUAL MODEL ARCHITECTURE WITH THE SKILEARN PYTHON MODEL
 AND THEN YOU GOTTA DEPLOY THIS USE DOCKER AND OTHER stuff
 
