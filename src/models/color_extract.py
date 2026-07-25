@@ -1,4 +1,4 @@
-import cv2
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
@@ -6,9 +6,20 @@ from PIL import Image
 from sklearn.metrics.pairwise import euclidean_distances
 from pathlib import Path
 
-def read_in(file):
+def read_in(file_path):
     #Read in image and convert to RGB
-    img = Image.open(file).convert('RGB')
+    image_list = []
+
+    for root, dirs, files in os.walk(file_path):
+        for n in files:
+            n = str(n)
+            fp = os.path.join(root, n)
+            fp = fp.replace('\\', '/')
+            with open(fp, 'r', errors='ignore') as f:
+                img = Image.open(f).convert('RGB')
+                image_list.append(img)
+
+    return image_list
 
 def preprocess(img):
     # Image transformations, resize image
@@ -24,7 +35,7 @@ def preprocess(img):
 
 def fit_model(pixels, dimen):
     h, w, c, = dimen
-    kmeans = KMeans(n_clusters=10, random_state=42, n_init="auto")
+    kmeans = KMeans(n_clusters=7, random_state=42, n_init="auto")
     kmeans.fit(pixels)
 
     labels = kmeans.labels_  # Cluster assignment for each point
@@ -32,8 +43,16 @@ def fit_model(pixels, dimen):
 
     segmented_pixels = centroids[labels]
     segmented_img = segmented_pixels.reshape(h, w, c)
+    return segmented_img
 
-def list_files():
+def list_files(train_path, val_path):
+    train_names = [item.name for item in train_path.iterdir()]
+    val_names = [item.name for item in val_path.iterdir()]
+
+    return train_names, val_names
+
+
+def looper():
     # Get directory of current folder
     current_dir = Path(__file__).resolve().parent
 
@@ -43,11 +62,22 @@ def list_files():
     train_path = root_dir / 'data' / 'Fashion_Images' / 'train'
     val_path = root_dir / 'data' / 'Fashion_Images' / 'val'
 
-    train_files = [item.name for item in train_path.iterdir()]
-    val_files = [item.name for item in val_path.iterdir()]
+    train_names, val_names = list_files(train_path, val_path)
 
-    print(train_files)
-    print(val_files)
+    for i in train_names:
+        path = train_path / i
+        path = str(path)
+        p = path.replace('\\', '/')
+        train_images = read_in(p)
 
-list_files()
-    
+    #train = train_path.replace("\\\\", "/")
+    #train = train.replace("\\", "/")
+    '''
+    # Doing train for now because not all images are finished
+    train_images = read_in(train)
+    '''
+
+    for img in train_images:
+        img.show()
+
+looper()
