@@ -2,9 +2,9 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
-from PIL import Image
 from sklearn.metrics.pairwise import euclidean_distances
 from pathlib import Path
+from PIL import Image
 
 def read_in(file_path):
     #Read in image and convert to RGB
@@ -12,12 +12,11 @@ def read_in(file_path):
 
     for root, dirs, files in os.walk(file_path):
         for n in files:
-            n = str(n)
+            #n = str(n)
             fp = os.path.join(root, n)
-            fp = fp.replace('\\', '/')
-            with open(fp, 'r', errors='ignore') as f:
-                img = Image.open(f).convert('RGB')
-                image_list.append(img)
+            #fp = fp.replace('\\', '/')
+            img = Image.open(fp).convert('RGB')
+            image_list.append(img)
 
     return image_list
 
@@ -64,11 +63,7 @@ def looper():
 
     train_names, val_names = list_files(train_path, val_path)
 
-    for i in train_names:
-        path = train_path / i
-        path = str(path)
-        p = path.replace('\\', '/')
-        train_images = read_in(p)
+    train_images = read_in(train_path)
 
     #train = train_path.replace("\\\\", "/")
     #train = train.replace("\\", "/")
@@ -81,3 +76,4 @@ def looper():
         img.show()
 
 looper()
+
