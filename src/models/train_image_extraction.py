@@ -11,6 +11,14 @@ from torch.utils.data import DataLoader
 import torch.multiprocessing as mp
 import numpy as np
 from PIL import Image
+from pathlib import Path
+import sys
+
+current_dir = Path(__file__).resolve().parent
+root_dir = current_dir.parents[1]
+
+sys.path.insert(0, str(root_dir))
+
 from src.models.image_extraction import CNN
 from dotenv import load_dotenv
 
