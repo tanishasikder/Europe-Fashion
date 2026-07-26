@@ -12,6 +12,7 @@ import torch.multiprocessing as mp
 import numpy as np
 from PIL import Image
 from src.models.image_extraction import CNN
+from dotenv import load_dotenv
 
 # Push to GPU if it is available, CPU if not
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -38,7 +39,9 @@ data_transforms = {
     ])
 }
 
-data_dir = r'C:/Users/Tanis\Downloads/Europe-Fashion/Fashion_Images'
+load_dotenv()
+data_dir = os.environ.get('DATA_DIR')
+
 sets = ['train', 'val']
 
 def get_valid_image(path):
