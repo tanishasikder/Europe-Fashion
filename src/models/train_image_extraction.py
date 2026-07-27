@@ -1,5 +1,4 @@
-'''Debugging note: Images and dataloading are NOT corrupted'''
-
+import mlflow.pytorch
 import torch
 import os
 import copy
@@ -10,19 +9,21 @@ from torchvision import datasets, transforms
 import torch.optim as optim
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
-import torch.multiprocessing as mp
+import mlflow
+import dagshub
 import numpy as np
 from PIL import Image
 from pathlib import Path
 import sys
-from src.models.image_extraction import CNN
 from dotenv import load_dotenv
+from src.core.tracking_config import Dagshub_Track
 
 current_dir = Path(__file__).resolve().parent
 root_dir = current_dir.parents[1]
 
 sys.path.insert(0, str(root_dir))
 
+from src.models.image_extraction import CNN
 # Push to GPU if it is available, CPU if not
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -50,6 +51,7 @@ data_transforms = {
 
 load_dotenv()
 data_dir = os.environ.get('DATA_DIR')
+image_path = os.environ.get('IMAGE_MODEL')
 
 sets = ['train', 'val']
 
@@ -63,83 +65,89 @@ def get_valid_image(path):
 
 # Train on the last layer of the resnet to learn clothing features
 def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
-    best_model = copy.deepcopy(model.state_dict())
-    best_accuracy = 0.0
-    best_model = None
+    with mlflow.start_run():
+        best_model = model.state_dict()
+        best_accuracy = 0.0
+        best_model = None
 
-    for epoch in range(num_epochs):
-        print(f'Epoch {epoch}/{num_epochs - 1}')
-        # Switch between training and validation
-        for phase in sets:
-            if phase == 'train':
-                model.train()
-            else:
-                model.eval()
+        for epoch in range(num_epochs):
+            print(f'Epoch {epoch}/{num_epochs - 1}')
+            # Switch between training and validation
+            for phase in sets:
+                if phase == 'train':
+                    model.train()
+                else:
+                    model.eval()
 
-            run_loss = 0.0
-            loss = 0.0
-            correct = 0
+                run_loss = 0.0
+                loss = 0.0
+                correct = 0
 
-            # Loop over the labels and the images in the dataloader
-            for input, label in data_loaders[phase]:
-                inputs = input.to(device)
-                label = label.to(device)
+                # Loop over the labels and the images in the dataloader
+                for input, label in data_loaders[phase]:
+                    inputs = input.to(device)
+                    label = label.to(device)
 
-                with torch.set_grad_enabled(phase=='train'):
-                    # Gets the outputs from resnet model
-                    color, clothing_type = model(inputs)
+                    with torch.set_grad_enabled(phase=='train'):
+                        # Gets the outputs from resnet model
+                        color, clothing_type = model(inputs)
 
-                    # Labels is a tensor of indices from the original file name
-                    # Must separate labels to match color and clothing type
-                    color_labels = torch.tensor([color_names.index(image_datasets[phase].classes[l].split('_')[0])
-                                                 for l in label])
-                    type_labels = torch.tensor([type_names.index(image_datasets[phase].classes[l].split('_')[1])
-                                                for l in label])
+                        # Labels is a tensor of indices from the original file name
+                        # Must separate labels to match color and clothing type
+                        color_labels = torch.tensor([color_names.index(image_datasets[phase].classes[l].split('_')[0])
+                                                    for l in label])
+                        type_labels = torch.tensor([type_names.index(image_datasets[phase].classes[l].split('_')[1])
+                                                    for l in label])
 
-                    color_labels = color_labels.to(device)
-                    type_labels = type_labels.to(device)
+                        color_labels = color_labels.to(device)
+                        type_labels = type_labels.to(device)
 
-                    # Gets the largest score then calculates loss
-                    _, color_pred = torch.max(color, 1)
-                    color_loss = criterion(color, color_labels)
+                        # Gets the largest score then calculates loss
+                        _, color_pred = torch.max(color, 1)
+                        color_loss = criterion(color, color_labels)
 
-                    _, type_pred = torch.max(clothing_type, 1)
-                    type_loss = criterion(clothing_type, type_labels)
+                        _, type_pred = torch.max(clothing_type, 1)
+                        type_loss = criterion(clothing_type, type_labels)
 
-                    # Overall loss from both predictions
-                    loss = type_loss + color_loss
+                        # Overall loss from both predictions
+                        loss = type_loss + color_loss
 
-                    # Optimizes and backward propagates if it is training
-                    if phase == 'train':
-                        optimizer.zero_grad()
-                        loss.backward()
-                        optimizer.step()
-                
-                # Calculates the loss and correct labels
-                run_loss += loss.item() * inputs.size(0)
-                correct += torch.sum(color_pred == (color_labels))
-                correct += torch.sum(type_pred == (type_labels))
-        
-        # Overall loss and accuracy of this model
-        epoch_loss = run_loss / dataset_sizes[phase]
-        #print(f'data_size phase{dataset_sizes}')
-        epoch_accuracy = correct / (2* dataset_sizes[phase])
+                        # Optimizes and backward propagates if it is training
+                        if phase == 'train':
+                            optimizer.zero_grad()
+                            loss.backward()
+                            optimizer.step()
+                    
+                    # Calculates the loss and correct labels
+                    run_loss += loss.item() * inputs.size(0)
+                    correct += torch.sum(color_pred == (color_labels))
+                    correct += torch.sum(type_pred == (type_labels))
+            
+            # Overall loss and accuracy of this model
+            epoch_loss = run_loss / dataset_sizes[phase]
+            #print(f'data_size phase{dataset_sizes}')
+            epoch_accuracy = correct / (2* dataset_sizes[phase])
 
-        print(f'{phase} Loss : {epoch_loss:.3f} Accuracy : {epoch_accuracy:.3f}')
+            print(f'{phase} Loss : {epoch_loss:.3f} Accuracy : {epoch_accuracy:.3f}')
 
-        # If it is validation, find the best model by finding the best accuracy
-        if phase == 'val' and epoch_accuracy > best_accuracy:
-            best_accuracy = epoch_accuracy
-            best_model = copy.deepcopy(model.state_dict())
+            # If it is validation, find the best model by finding the best accuracy
+            if phase == 'val' and epoch_accuracy > best_accuracy:
+                best_accuracy = epoch_accuracy
+                mlflow.log_metric('best accuracy', best_accuracy)
+                model_info = mlflow.pytorch.log_model(model, name='europe-fashion-image-extract')
+                mlflow.register_model(model_uri=f"models:/{model_info.model_id}", name='europe-fashion-image-extract')
+                best_model = mlflow.pytorch.load_model(model_uri=f"models:/{model_info.model_id}")
 
-        scheduler.step()
-    print(f'Best model accuracy: {best_accuracy:.3f}')
-    model.load_state_dict(best_model)
-    return model
+            scheduler.step()
+        print(f'Best model accuracy: {best_accuracy:.3f}')
+        return best_model.state_dict()   # return the best model's weights and params
 
 # Required for multi-processing in Windows
 # Executes code that start everything
 if __name__ == '__main__':
+    # Use the DagsHub Mlflow server to log things
+    Dagshub_Track
+
     # Getting the data based on the train/val sets then doing transformations
     image_datasets = {x : datasets.ImageFolder(os.path.join(data_dir, x),
                                             data_transforms[x],
@@ -180,5 +188,5 @@ if __name__ == '__main__':
         
     # Initializing the final model with all the parameters
     model = train_model(model, criterion, optimizer, step_lr, num_epochs=10)
-    # Save the model
-    torch.save(model.state_dict(), 'C:/Users/Tanis/Downloads/Europe-Fashion/business_logic/image_extraction_model.pth')
+    # Save the model locally too
+    torch.save(model.state_dict(), image_path)

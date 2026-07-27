@@ -1,0 +1,20 @@
+val Loss : 3.422 Accuracy : 0.530
+Epoch 1/9
+val Loss : 2.566 Accuracy : 0.616
+Epoch 2/9
+val Loss : 2.190 Accuracy : 0.680
+Epoch 3/9
+val Loss : 1.957 Accuracy : 0.708
+Epoch 4/9
+val Loss : 1.806 Accuracy : 0.734
+Epoch 5/9
+val Loss : 1.693 Accuracy : 0.742
+Epoch 6/9
+val Loss : 1.600 Accuracy : 0.751
+Epoch 7/9
+val Loss : 1.592 Accuracy : 0.753
+Epoch 8/9
+val Loss : 1.584 Accuracy : 0.754
+Epoch 9/9
+val Loss : 1.576 Accuracy : 0.755
+Best model accuracy: 0.755

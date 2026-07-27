@@ -14,6 +14,7 @@ import yaml
 from dotenv import load_dotenv
 import dagshub
 import os
+from src.core.tracking_config import Dagshub_Track
 
 # Best Practice for locating parent directories
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -130,10 +131,8 @@ def train_model(X, y):
         mlflow.end_run()
 
 if __name__ == "__main__":
-    OWNER = os.getenv('DAGSHUB_OWNER')
-    REPO = os.getenv('DAGSHUB_REPO')
-
-    dagshub.init(repo_owner=OWNER, repo_name=REPO, mlflow=True)
+    # Use the DagsHub Mlflow server to log things
+    Dagshub_Track
 
     X, y = initialization()
 
