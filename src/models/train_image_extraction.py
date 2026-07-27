@@ -1,3 +1,5 @@
+'''Debugging note: Images and dataloading are NOT corrupted'''
+
 import torch
 import os
 import copy
@@ -13,14 +15,13 @@ import numpy as np
 from PIL import Image
 from pathlib import Path
 import sys
+from src.models.image_extraction import CNN
+from dotenv import load_dotenv
 
 current_dir = Path(__file__).resolve().parent
 root_dir = current_dir.parents[1]
 
 sys.path.insert(0, str(root_dir))
-
-from src.models.image_extraction import CNN
-from dotenv import load_dotenv
 
 # Push to GPU if it is available, CPU if not
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -164,10 +165,10 @@ if __name__ == '__main__':
         replace_color = color[0:dash]
         color_names[color_index] = replace_color
 
-    for type in type_names:
-        dash = type.index('_')
-        type_index = type_names.index(type)
-        replace_type = type[dash+1:]
+    for cat in type_names:
+        dash = cat.index('_')
+        type_index = type_names.index(cat)
+        replace_type = cat[dash+1:]
         type_names[type_index] = replace_type
 
     model = CNN(color_names, type_names)
