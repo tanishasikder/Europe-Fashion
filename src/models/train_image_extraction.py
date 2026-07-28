@@ -189,4 +189,4 @@ if __name__ == '__main__':
     # Initializing the final model with all the parameters
     model = train_model(model, criterion, optimizer, step_lr, num_epochs=10)
     # Save the model locally too
-    torch.save(model.state_dict(), image_path)
+    torch.save(model, image_path)
