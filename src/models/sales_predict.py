@@ -132,7 +132,8 @@ def train_model(X, y):
 
 if __name__ == "__main__":
     # Use the DagsHub Mlflow server to log things
-    Dagshub_Track
+    track = Dagshub_Track()
+    track.initialize()
 
     X, y = initialization()
 

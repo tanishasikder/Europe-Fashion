@@ -27,7 +27,7 @@ data_transforms = transforms.Compose([
     transforms.Normalize(mean, std)
 ])
 
-'''
+
 @router.get("/query/")
 async def query_rag_system(query: str):
     try:
@@ -35,9 +35,8 @@ async def query_rag_system(query: str):
         return {"query": query, "response": response}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-'''
 
-#@app.post("/predict")
+
 async def initialize_preds(numerical_outputs):
     query = (f"Using the following user parameters {numerical_outputs}"
             "Generate summary reports for how the clothing will do in"
@@ -46,9 +45,9 @@ async def initialize_preds(numerical_outputs):
             "Only quantity and item total use original price alongside"
             "the other predictors")
         
-    #response = await query_rag_system(query)
+    response = await query_rag_system(query)
     
-    #return response
+    return response
 
 # Gets the model predictions for color and clothing type
 async def image_output(contents: Image.Image):

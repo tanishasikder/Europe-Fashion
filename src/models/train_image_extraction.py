@@ -16,13 +16,13 @@ from PIL import Image
 from pathlib import Path
 import sys
 from dotenv import load_dotenv
-from src.core.tracking_config import Dagshub_Track
 
 current_dir = Path(__file__).resolve().parent
 root_dir = current_dir.parents[1]
 
 sys.path.insert(0, str(root_dir))
 
+from src.core.tracking_config import Dagshub_Track
 from src.models.image_extraction import CNN
 # Push to GPU if it is available, CPU if not
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -146,8 +146,9 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
 # Executes code that start everything
 if __name__ == '__main__':
     # Use the DagsHub Mlflow server to log things
-    Dagshub_Track
-
+    track = Dagshub_Track()
+    track.initialize()
+    
     # Getting the data based on the train/val sets then doing transformations
     image_datasets = {x : datasets.ImageFolder(os.path.join(data_dir, x),
                                             data_transforms[x],

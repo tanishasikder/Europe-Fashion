@@ -2,7 +2,7 @@
 FROM python:3.11-slim
 
 # Root to the directory for the DOCKER
-WORKDIR /business_logic
+WORKDIR /src
 
 # Requirements file
 COPY requirements.txt .
@@ -18,4 +18,7 @@ RUN pip install --upgrade pip \
 # Copy the entire project into the image
 COPY . .
 
-# Copy both the models just in case
+# Build docker image from MLflow model
+RUN pip install mlflow scikit-learn
+
+RUN mlflow models build-docker -m 
