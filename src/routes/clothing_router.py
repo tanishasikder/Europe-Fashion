@@ -4,9 +4,6 @@ from src.routes.database import supabase, SUPABASE_BUCKET, SUPABASE_URL
 from models import image_extracton
 from fastapi.templating import Jinja2Templates
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
 
 TEMPLATE_PATH=os.getenv('TEMPLATE_PATH')
 

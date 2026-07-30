@@ -14,9 +14,6 @@ from pydantic import BaseModel
 from typing import Optional, List
 from src.api.schemas.input import ClothingRequest
 from supabase import create_client, Client
-from dotenv import load_dotenv
-
-load_dotenv()
 
 mean = np.array([0.485, 0.456, 0.406])
 std = np.array([0.229, 0.224, 0.225])
