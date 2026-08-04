@@ -15,7 +15,6 @@ import numpy as np
 from PIL import Image
 from pathlib import Path
 import sys
-from dotenv import load_dotenv
 
 current_dir = Path(__file__).resolve().parent
 root_dir = current_dir.parents[1]
@@ -49,7 +48,6 @@ data_transforms = {
     ])
 }
 
-load_dotenv()
 data_dir = os.environ.get('DATA_DIR')
 image_path = os.environ.get('IMAGE_MODEL')
 

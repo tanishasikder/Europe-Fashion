@@ -20,5 +20,3 @@ COPY . .
 
 # Build docker image from MLflow model
 RUN pip install mlflow scikit-learn
-
-RUN mlflow models build-docker -m 

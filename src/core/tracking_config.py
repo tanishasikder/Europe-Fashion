@@ -1,15 +1,13 @@
 import dagshub
 import mlflow
 import os
-from dotenv import load_dotenv
-
-OWNER = os.getenv('DAGSHUB_OWNER')
-REPO = os.getenv('DAGSHUB_REPO')
 
 class Dagshub_Track():
     def __init__(self):
-        self.owner = OWNER
-        self.repo = REPO
+        self.owner = os.getenv('DAGSHUB_OWNER')
+        self.repo = os.getenv('DAGSHUB_REPO')
+        if not self.owner or not self.repo:
+            raise ValueError("DAGSHUB_OWNER and DAGSHUB_REPO must be set")
         self._initialize = False
 
     def initialize(self):
