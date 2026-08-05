@@ -30,8 +30,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 mean = np.array([0.485, 0.456, 0.406])
 std = np.array([0.229, 0.224, 0.225])
 
-#Data transformations for the train and val sets
-data_transforms = {
+# Fashion images have bigger transformations
+fashion_transforms = {
     'train' : transforms.Compose([
         transforms.Resize(256),
         transforms.CenterCrop(224),
@@ -48,7 +48,22 @@ data_transforms = {
     ])
 }
 
-data_dir = os.environ.get('DATA_DIR')
+color_transforms = {
+    'train' : transforms.Compose([
+        transforms.Resize(256),
+        transforms.ToTensor(),
+        transforms.Normalize(mean, std)
+    ]),
+    'val' : transforms.Compose([
+        transforms.Resize(256),
+        transforms.ToTensor(),
+        transforms.Normalize(mean, std)
+    ])
+}
+
+image_dir = os.environ.get('IMAGE_FASHION_DIR')
+color_dir = os.environ.get('COLOR_DIR')
+annotation = os.environ.get('ANNOTATION_DIR')
 image_path = os.environ.get('IMAGE_MODEL')
 
 sets = ['train', 'val']
@@ -56,7 +71,7 @@ sets = ['train', 'val']
 def get_valid_image(path):
     path_lower = path.lower()
 
-    if path_lower.endswith(('.jpg', '.jpeg', '.png', '.webp', '.avif')):
+    if path_lower.endswith(('.jpg')):
         return True
 
     return False
@@ -88,7 +103,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
 
                     with torch.set_grad_enabled(phase=='train'):
                         # Gets the outputs from resnet model
-                        color, clothing_type = model(inputs)
+                        color, category, apparel, fg = model(inputs)
 
                         # Labels is a tensor of indices from the original file name
                         # Must separate labels to match color and clothing type
@@ -104,8 +119,8 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
                         _, color_pred = torch.max(color, 1)
                         color_loss = criterion(color, color_labels)
 
-                        _, type_pred = torch.max(clothing_type, 1)
-                        type_loss = criterion(clothing_type, type_labels)
+                        _, type_pred = torch.max(category, 1)
+                        type_loss = criterion(category, type_labels)
 
                         # Overall loss from both predictions
                         loss = type_loss + color_loss
@@ -148,13 +163,19 @@ if __name__ == '__main__':
     track.initialize()
     
     # Getting the data based on the train/val sets then doing transformations
-    image_datasets = {x : datasets.ImageFolder(os.path.join(data_dir, x),
-                                            data_transforms[x],
+    image_datasets = {x : datasets.ImageFolder(os.path.join(image_dir, x),
+                                            fashion_transforms[x],
                                             is_valid_file = get_valid_image)
                                             for x in sets}
-        
+
+    # Need to separate stuff into train/val datasets
+    color_datasets = {x : datasets.ImageFolder(os.path.join(color_dir, x),
+                                               color_transforms[x],
+                                               is_valid_file=get_valid_image)
+                                               for x in sets}   
+     
     # Loading the data in batches. Separate dataloaders for color and type tests
-    data_loaders = {
+    fashion_loaders = {
         'train' : DataLoader(image_datasets['train'], batch_size=32, 
                                 shuffle=True, num_workers=4, pin_memory=True),
         'val' : DataLoader(image_datasets['val'], batch_size=32, 

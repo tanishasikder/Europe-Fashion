@@ -11,10 +11,12 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # CNN class to classify image features
 class CNN(nn.Module):
-    def __init__(self, color_names, category_names):
+    def __init__(self, co_names, cat_names, appar_names, fg_names):
         super().__init__()
-        self.color_names = color_names
-        self.category_names = category_names
+        self.color_names = co_names
+        self.category_names = cat_names
+        self.apparels = appar_names
+        self.fine_grains = fg_names
         # Load in the pretrained resnet model
         model = models.vgg16(weights=VGG16_Weights.DEFAULT)
 
@@ -27,24 +29,27 @@ class CNN(nn.Module):
         # Assign a fully connected layer containing the class names
         num_features = 512 * 7 * 7
         # Head to classify the color
-        # len of color_names and category_names is 25 each
-        self.fc_color = nn.Linear(num_features, len(color_names))
-        #self.dropout1 = nn.Dropout(0.5)
+        self.fc_color = nn.Linear(num_features, len(co_names))
+        self.dropout1 = nn.Dropout(0.5)
         # Head to classify the clothing category
-        self.fc_category = nn.Linear(num_features, len(category_names))
-        #self.dropout2 = nn.Dropout(0.5)
+        self.fc_category = nn.Linear(num_features, len(cat_names))
+        self.dropout2 = nn.Dropout(0.5)
+        self.fc_apparel = nn.Linear(num_features, len(appar_names))
+        self.fc_fg = nn.Linear(num_features, len(fg_names))
         self.to(device)
     
     def forward(self, x):
-        # Gather features and assign it to the color and category heads
+        # Gather features and assign it to the heads
         x = self.vgg16_features(x)
         x = self.avgpool(x)
         # Flatten the features so it can be used in linear layers
         # Goes from [batch, 512, 1, 1] to [batch, 512]
         x = torch.flatten(x, 1)
-        #x = self.dropout1(x)
+        x = self.dropout1(x)
         color = self.fc_color(x)
-        #x = self.dropout2(x)
+        x = self.dropout2(x)
         category = self.fc_category(x)
+        apparel = self.fc_apparel(x)
+        fine_grains = self.fc_fg(x)
         # Return the classification
-        return color, category
+        return color, category, apparel, fine_grains
