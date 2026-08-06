@@ -1,7 +1,7 @@
 import mlflow.pytorch
 import torch
 import os
-import copy
+from process_data import fashion_transform, color_transform
 import torch.nn as nn
 import torchvision.models as models
 import torchvision.transforms as transforms
@@ -15,6 +15,7 @@ import numpy as np
 from PIL import Image
 from pathlib import Path
 import sys
+from dotenv import load_dotenv
 
 current_dir = Path(__file__).resolve().parent
 root_dir = current_dir.parents[1]
@@ -26,43 +27,9 @@ from src.models.image_extraction import CNN
 # Push to GPU if it is available, CPU if not
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# Used the normalize the inputs
-mean = np.array([0.485, 0.456, 0.406])
-std = np.array([0.229, 0.224, 0.225])
-
-# Fashion images have bigger transformations
-fashion_transforms = {
-    'train' : transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
-        transforms.RandomHorizontalFlip(),
-        #transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.5, hue=0.5),
-        transforms.ToTensor(),
-        transforms.Normalize(mean, std)
-    ]),
-    'val' : transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        transforms.Normalize(mean, std)
-    ])
-}
-
-color_transforms = {
-    'train' : transforms.Compose([
-        transforms.Resize(256),
-        transforms.ToTensor(),
-        transforms.Normalize(mean, std)
-    ]),
-    'val' : transforms.Compose([
-        transforms.Resize(256),
-        transforms.ToTensor(),
-        transforms.Normalize(mean, std)
-    ])
-}
+load_dotenv()
 
 image_dir = os.environ.get('IMAGE_FASHION_DIR')
-color_dir = os.environ.get('COLOR_DIR')
 annotation = os.environ.get('ANNOTATION_DIR')
 image_path = os.environ.get('IMAGE_MODEL')
 
@@ -97,7 +64,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
                 correct = 0
 
                 # Loop over the labels and the images in the dataloader
-                for input, label in data_loaders[phase]:
+                for input, label in fashion_loaders[phase]:
                     inputs = input.to(device)
                     label = label.to(device)
 
@@ -164,13 +131,13 @@ if __name__ == '__main__':
     
     # Getting the data based on the train/val sets then doing transformations
     image_datasets = {x : datasets.ImageFolder(os.path.join(image_dir, x),
-                                            fashion_transforms[x],
+                                            fashion_transform(x),
                                             is_valid_file = get_valid_image)
                                             for x in sets}
 
     # Need to separate stuff into train/val datasets
     color_datasets = {x : datasets.ImageFolder(os.path.join(color_dir, x),
-                                               color_transforms[x],
+                                               color_transform(x),
                                                is_valid_file=get_valid_image)
                                                for x in sets}   
      
