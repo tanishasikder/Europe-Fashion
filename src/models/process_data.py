@@ -66,78 +66,79 @@ def process_colors():
     paths = []
 
     for path, mid, file in os.walk(color_dir):
-        paths.append(path) # For opening the image later on. Need full path
         marker = path.find('colors\\')
+        paths.append(path[:marker+7]) # For opening the image later on. Need full path
         path = path[marker+7:]
         slash = path.find('\\')
 
-        if slash != -1:
-            color_dict[path] = file
+        #if slash != -1:
+        color_dict[path] = file
 
     # Remove first value its the file path to whole folder
     (k := next(iter(color_dict)), color_dict.pop(k))
 
     return color_dict, paths
 
-class ColorData(Dataset):
-    def __init__(self, data, paths, transform):
-        self.data = data
-        #self.colors = []
-        self.paths = paths
-        self.transform = transform
+def encoding(name):
+    codes = { # Pytorch datasets encode labels with data
+        'Black' : 0,
+        'Blue' : 1,
+        'Gray' : 2,
+        'Orange' : 3,
+        'Pink' : 4,
+        'Purple' : 5,
+        'Skyblue' : 6,
+        'White' : 6,
+        'Yellow' : 7
+    }
 
-    def __len__(data):
-        return len(data)
-
-    def encoding(self, name):
-        codes = { # Pytorch datasets encode labels with data
-            'Black' : 0,
-            'Blue' : 1,
-            'Gray' : 2,
-            'Orange' : 3,
-            'Pink' : 4,
-            'Purple' : 5,
-            'Skyblue' : 6,
-            'White' : 6,
-            'Yellow' : 7
-        }
-
-        if name in codes.keys():
-            return codes[name]
+    if name in codes.keys():
+        return codes[name]
         
-    def make_data(self, data, paths, colors, transform):
-        print(data.keys())
-        '''
-        for index, (key, value) in enumerate(data.items()):
-            marker = key.find('\\')  # All this for class names
-            
-            if marker == -1:
-                continue
-            else:
-                color = key[:marker]
+def make_data(data, paths, transform):
+    labels, images = [], []
+    for index, (key, value) in enumerate(data.items()):
+        marker = key.find('\\')  # All this for class names
+        
+        if marker == -1:
+            continue
+        else:
+            color = key[:marker]
 
-            hi = data.keys()
-            idk = list(hi)[index]
+        for file in value:
+            with open(f'{paths[index]}\\{key}\\{file}', 'rb') as f:
+                img = Image.open(f)
+                image = transform['train']
+                image = image(img)
 
-            for file in value:
-                with open(f'{paths[index]}\\{key}\\{file}', 'rb') as f:
-                    img = Image.open(f)
-                    image = transform['train']
-                    image = image(img)
-                    image = torch.tensor(image)
+                name = encoding(color)
+                labels.append(name)
+                images.append(image)
 
-                    name = self.encoding(color)
-                    colors.append((image, name)) # Store as tuples (important)
-        '''
-        return colors
+    return labels, images
+
+def split_data(colors):
+    train, test = random_split(colors, [0.8, 0.2])
+    return train, test
+
+class ColorData(Dataset):
+    def __init__(self, labels, images):
+        self.labels = labels
+        self.images = images
+
+    def __len__(self):
+        return len(self.images)
     
-    def split_data(colors):
-        train, test = random_split(colors, [0.8, 0.2])
-        return train, test
+    def __getitem__(self, index):
+        sample = {
+            'labels' : torch.tensor(self.labels[index]),
+            'images' : torch.tensor(self.images[index])
+        }
+        return sample
+
 
 dict, paths = process_colors()    
 transform = color_transform()
-color = ColorData(dict, paths, transform)
-colors = color.make_data(dict, paths, [], transform)
-
-#train, test = color.split_data(colors)
+labels, images = make_data(dict, paths, transform)
+colors = ColorData(labels, images)
+train, test = split_data(colors)
