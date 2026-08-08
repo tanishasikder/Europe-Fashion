@@ -16,6 +16,7 @@ from PIL import Image
 from pathlib import Path
 import sys
 from dotenv import load_dotenv
+from process_data import ColorData, get_data
 
 current_dir = Path(__file__).resolve().parent
 root_dir = current_dir.parents[1]
@@ -135,11 +136,8 @@ if __name__ == '__main__':
                                             is_valid_file = get_valid_image)
                                             for x in sets}
 
-    # Need to separate stuff into train/val datasets
-    color_datasets = {x : datasets.ImageFolder(os.path.join(color_dir, x),
-                                               color_transform(x),
-                                               is_valid_file=get_valid_image)
-                                               for x in sets}   
+    # Use the custom class and functions for the color data
+    train, test = get_data()
      
     # Loading the data in batches. Separate dataloaders for color and type tests
     fashion_loaders = {
@@ -149,22 +147,16 @@ if __name__ == '__main__':
                                 shuffle=False, num_workers=4, pin_memory=True)                       
     }
 
+    color_loaders = {
+        'train' : DataLoader(train, batch_size=32, shuffle=True, num_workers=4, pin_memory=True),
+        'val' : DataLoader(test, batch_size=32, shuffle=False, num_workers=4, pin_memory=True)
+    }
+    color = ColorData()
+
     dataset_sizes = {x : len(image_datasets[x]) for x in sets}
-    color_names = image_datasets['train'].classes.copy()
-    type_names = image_datasets['train'].classes.copy()
 
     # Configuring with color and clothing classes. Removing dashes
-    for color in color_names:
-        dash = color.index('_')
-        color_index = color_names.index(color)
-        replace_color = color[0:dash]
-        color_names[color_index] = replace_color
 
-    for cat in type_names:
-        dash = cat.index('_')
-        type_index = type_names.index(cat)
-        replace_type = cat[dash+1:]
-        type_names[type_index] = replace_type
 
     model = CNN(color_names, type_names)
     criterion = nn.CrossEntropyLoss()

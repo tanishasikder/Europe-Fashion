@@ -136,9 +136,11 @@ class ColorData(Dataset):
         }
         return sample
 
+def get_data():
+    dict, paths = process_colors()    
+    transform = color_transform()
+    labels, images = make_data(dict, paths, transform)
+    colors = ColorData(labels, images)
+    train, test = split_data(colors)
 
-dict, paths = process_colors()    
-transform = color_transform()
-labels, images = make_data(dict, paths, transform)
-colors = ColorData(labels, images)
-train, test = split_data(colors)
+    return train, test
