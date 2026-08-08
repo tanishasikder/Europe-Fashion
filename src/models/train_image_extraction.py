@@ -156,7 +156,7 @@ if __name__ == '__main__':
     dataset_sizes = {x : len(image_datasets[x]) for x in sets}
 
     # Configuring with color and clothing classes. Removing dashes
-
+    
 
     model = CNN(color_names, type_names)
     criterion = nn.CrossEntropyLoss()
