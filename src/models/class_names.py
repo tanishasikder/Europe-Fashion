@@ -14,7 +14,9 @@ path = annotations + '\\train_annotations.json'
 
 images = {}
 
-def corresponding(values):
+def corresponding(file_names, img_value):
+    name = next(file['name'] for file in file_names if file['id'] == img_value)
+    return name
 
 def get_images():
     '''
@@ -22,23 +24,45 @@ def get_images():
     attributes. Stores everything in a dict
     '''
     images_temp = [] # Temporary hold all dicts before processing
+    file_names = []
 
     with open(path, 'r', encoding='utf-8') as t:
         file = json.load(t)
         lines = file['images']
 
     # They are just IDs so need to decode them later on
-    # THIS IS WRONG YOURE ASSUMING ALL THE IMAGES ARE IN ORDER
-    # YOU NEED TO GET THE IMAGES BU IMAGE_ID AND GET THE CORRESPONDING CORRECT FILE NAME
     for i in range(len(lines)):
         values = {'image_id' : file['annotations'][i]['image_id'], 
                   'attribute_id' : file['annotations'][i]['attribute_ids'],
                   'category_id' : file['annotations'][i]['category_id']}
 
-    images_temp[file['images'][i]['file_name']] = values
+        images_temp.append(values)
+
+    for j in range(len(lines)):
+        # Get file name and ID to match the other list with
+        file_names.append({'name' : file['images'][j]['file_name'], 
+                           'id' : file['images'][j]['id']})
+
+    return file_names, images_temp
+
+def process_values(file_names, images_temp):
+    for value in images_temp:
+        id = value['image_id']
+        name = corresponding(file_names, id)
+        images[name] = value
+
+def get_cat(id, cats):
+    cat = next(c for c in cats if c == id)
+    return cat
+
+def get_attr(id, attrs):
+    attr = next(a for a in attrs if a == id)
+    return attr
 
 def decode_images():
-    '''Decodes all of the IDs for each image'''
+    processed = {}
+
+    # Decodes all of the IDs for each image
     with open(path, 'r', encoding='utf-8') as t:
         file = json.load(t)
 
@@ -47,13 +71,11 @@ def decode_images():
     categories = file['categories']
     attributes = file['attributes']
 
-    for img in images_temp:
-        for dict in img:
-            for cat in categories:
-                   
-        
+    for img in images:
+        cat = get_cat(images[img]['category_id'], categories)
+        attr = get_attr(images[img]['attribute_id'], attributes)
+            
 
-
-get_images()
-
-print(images_temp)
+file_names, images_temp = get_images()
+process_values(file_names, images_temp)
+decode_images()
