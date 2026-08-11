@@ -1,6 +1,9 @@
 '''
 Need to get every category of clothes in the clothing images dataset
 '''
+
+'''PUT THE DIMENSIONS OF THE CLOTHING FROM THE DATASET NOT ALL CLOTHING IMAGES ARE CROPPED
+TO MATCH THE CLOTHING IT IS DESCRIBING'''
 from dotenv import load_dotenv
 import os 
 import numpy as np
@@ -52,12 +55,16 @@ def process_values(file_names, images_temp):
         images[name] = value
 
 def get_cat(id, cats):
-    cat = next(c for c in cats if c == id)
+    cat = next(c['name'] for c in cats if c['id'] == id)
     return cat
 
-def get_attr(id, attrs):
-    attr = next(a for a in attrs if a == id)
-    return attr
+def get_attr(attr_id, attrs):
+    names = []
+    
+    for id in attr_id:
+        names.append(next(a['name'] for a in attrs if a['id'] == id))
+
+    return names
 
 def decode_images():
     processed = {}
@@ -73,9 +80,19 @@ def decode_images():
 
     for img in images:
         cat = get_cat(images[img]['category_id'], categories)
-        attr = get_attr(images[img]['attribute_id'], attributes)
-            
+        describe = images[img]['attribute_id']
+
+        if describe: # Not every img has an attribute
+            attr = get_attr(describe, attributes)
+        else:
+            attr = None
+
+        processed[img] = [cat, attr]
+
+    return processed
 
 file_names, images_temp = get_images()
 process_values(file_names, images_temp)
-decode_images()
+processed = decode_images()
+
+print(processed)
