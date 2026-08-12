@@ -31,17 +31,17 @@ def get_images():
 
     with open(path, 'r', encoding='utf-8') as t:
         file = json.load(t)
-        lines = file['images']
 
     # They are just IDs so need to decode them later on
-    for i in range(len(lines)):
+    for i in range(45623): # How many images in train
         values = {'image_id' : file['annotations'][i]['image_id'], 
                   'attribute_id' : file['annotations'][i]['attribute_ids'],
-                  'category_id' : file['annotations'][i]['category_id']}
+                  'category_id' : file['annotations'][i]['category_id'],
+                  'bbox' : file['annotations'][i]['bbox']}
 
         images_temp.append(values)
 
-    for j in range(len(lines)):
+    for j in range(45623): # How many images in train
         # Get file name and ID to match the other list with
         file_names.append({'name' : file['images'][j]['file_name'], 
                            'id' : file['images'][j]['id']})
@@ -81,18 +81,17 @@ def decode_images():
     for img in images:
         cat = get_cat(images[img]['category_id'], categories)
         describe = images[img]['attribute_id']
+        bbox = images[img]['bbox'] # No need to process this. Used to find stuff later
 
         if describe: # Not every img has an attribute
             attr = get_attr(describe, attributes)
         else:
             attr = None
 
-        processed[img] = [cat, attr]
+        processed[img] = [cat, attr, bbox]
 
     return processed
 
 file_names, images_temp = get_images()
 process_values(file_names, images_temp)
 processed = decode_images()
-
-print(processed)
