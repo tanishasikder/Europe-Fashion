@@ -48,9 +48,9 @@ def get_images():
 
     return file_names, images_temp
 
-def process_values(file_names, images_temp):
-    for value in images_temp:
-        id = value['image_id']
+def process_values(file_names):
+    for value in file_names:
+        id = value['id']
         name = corresponding(file_names, id)
         images[name] = value
 
