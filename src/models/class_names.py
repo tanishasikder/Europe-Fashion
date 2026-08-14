@@ -3,15 +3,13 @@ import os
 import numpy as np
 import pandas as pd
 import json
+from collections import defaultdict
 
 load_dotenv()
 
 annotations=os.getenv('ANNOTATION_DIR')
 path = annotations + '\\train_annotations.json'
 
-def corresponding(file_names, img_value):
-    name = next(file['name'] for file in file_names if file['id'] == img_value)
-    return name
 
 def get_images():
     '''
@@ -26,7 +24,6 @@ def get_images():
 
     # They are just IDs so need to decode them later on
     for i in range(333401): # Length of annotations
-        print(file['annotations'][i]['image_id'])
         values = {'image_id' : file['annotations'][i]['image_id'], 
                   'attribute_id' : file['annotations'][i]['attribute_ids'],
                   'category_id' : file['annotations'][i]['category_id'],
@@ -44,9 +41,7 @@ def get_images():
 def process_values(file_names):
     images = {}
     for value in file_names:
-        id = value['id']
-        name = corresponding(file_names, id)
-        images[name] = value
+        images[value['name']] = value
         
     return images
 
@@ -73,28 +68,35 @@ def decode_images(images, images_temp):
     # Each image has only one category
     categories = file['categories']
     attributes = file['attributes']
+     # Index annotations by image_id once, instead of rescanning images_temp every loop
+    by_image_id = defaultdict(list)
+    for item in images_temp:
+        by_image_id[item['image_id']].append(item)
 
     for img in images:
         id = images[img]['id']
-        print(id)
         # Get the dict in images_temp that has the values first
-        result = next((item for item in images_temp if item['image_id'] == id))
-        cat = get_cat(result['category_id'], categories)
-        describe = result['attribute_id']
-        bbox = result['bbox'] # No need to process this. Used to find stuff later
+        results = by_image_id[id]
 
-    if describe: # Not every img has an attribute
-        attr = get_attr(describe, attributes)
-    else:
-        attr = None
+        for result in results:
+            cat = get_cat(result['category_id'], categories)
+            describe = result['attribute_id']
+            bbox = result['bbox'] # No need to process this. Used to find stuff later
 
-    if img in processed:
-        processed[img].append([cat, attr, bbox])
-    else:
-        processed[img] = [cat, attr, bbox]
+            if describe: # Not every img has an attribute
+                attr = get_attr(describe, attributes)
+            else:
+                attr = None
+
+            if img in processed:
+                processed[img].append([cat, attr, bbox])
+            else:
+                processed[img] = [cat, attr, bbox]
 
     return processed
 
 file_names, images_temp = get_images()
-process_values(file_names, images_temp)
-processed = decode_images()
+images = process_values(file_names)
+processed = decode_images(images, images_temp)
+
+print(processed)
