@@ -1,7 +1,7 @@
 import mlflow.pytorch
 import torch
 import os
-from process_data import fashion_transform, color_transform
+from process_data import fashion_transform, color_transform, get_colors
 import torch.nn as nn
 import torchvision.models as models
 import torchvision.transforms as transforms
@@ -31,9 +31,10 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 load_dotenv()
 
 image_dir = os.environ.get('IMAGE_FASHION_DIR')
-annotation = os.environ.get('ANNOTATION_DIR')
+annotation = os.environ.get('ANNOTATION_DIR') # Might not need this we'll see
 image_path = os.environ.get('IMAGE_MODEL')
 
+train_labels = os.environ.get('TRAIN_LABELS')
 sets = ['train', 'val']
 
 def get_valid_image(path):
@@ -156,9 +157,9 @@ if __name__ == '__main__':
     dataset_sizes = {x : len(image_datasets[x]) for x in sets}
 
     # Configuring with color and clothing classes. Removing dashes
-    
+    codes = get_colors() # Dict where the values have the colors as strings
 
-    model = CNN(color_names, type_names)
+    model = CNN(list(codes.values()), type_names)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=1e-4, weight_decay=1e-4)
 

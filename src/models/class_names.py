@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import json
 from collections import defaultdict
+import json
 
 load_dotenv()
 
@@ -99,4 +100,7 @@ file_names, images_temp = get_images()
 images = process_values(file_names)
 processed = decode_images(images, images_temp)
 
-print(processed)
+with open('analysis.json', 'w') as f:
+    json.dump(processed, f, indent=4)
+
+

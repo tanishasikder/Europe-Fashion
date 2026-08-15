@@ -69,9 +69,7 @@ def process_colors():
         marker = path.find('colors\\')
         paths.append(path[:marker+7]) # For opening the image later on. Need full path
         path = path[marker+7:]
-        slash = path.find('\\')
 
-        #if slash != -1:
         color_dict[path] = file
 
     # Remove first value its the file path to whole folder
@@ -80,17 +78,7 @@ def process_colors():
     return color_dict, paths
 
 def encoding(name):
-    codes = { # Pytorch datasets encode labels with data
-        'Black' : 0,
-        'Blue' : 1,
-        'Gray' : 2,
-        'Orange' : 3,
-        'Pink' : 4,
-        'Purple' : 5,
-        'Skyblue' : 6,
-        'White' : 6,
-        'Yellow' : 7
-    }
+    codes = get_colors()
 
     if name in codes.keys():
         return codes[name]
@@ -121,6 +109,20 @@ def split_data(colors):
     train, test = random_split(colors, [0.8, 0.2])
     return train, test
 
+def get_colors():
+    codes = { # Pytorch datasets encode labels with data
+        'Black' : 0,
+        'Blue' : 1,
+        'Gray' : 2,
+        'Orange' : 3,
+        'Pink' : 4,
+        'Purple' : 5,
+        'Skyblue' : 6,
+        'White' : 6,
+        'Yellow' : 7
+    }
+    return codes
+
 class ColorData(Dataset):
     def __init__(self, labels, images):
         self.labels = labels
@@ -144,3 +146,14 @@ def get_data():
     train, test = split_data(colors)
 
     return train, test
+
+train, test = get_data()
+
+codes = get_colors()
+
+sample = train[3]
+labels = sample['labels'].item()
+
+keys = {v: k for k, v in codes.items()}
+
+print(keys[labels])
