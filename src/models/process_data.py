@@ -17,6 +17,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from torch.utils.data import Dataset
 from torch.utils.data import random_split
+import matplotlib.pyplot as plt
 
 load_dotenv()
 
@@ -151,9 +152,13 @@ train, test = get_data()
 
 codes = get_colors()
 
-sample = train[3]
+sample = train[5]
 labels = sample['labels'].item()
 
 keys = {v: k for k, v in codes.items()}
 
 print(keys[labels])
+
+image = sample['images']
+plt.imshow(image.permute(1, 2, 0).cpu().detach().numpy())
+plt.show()
