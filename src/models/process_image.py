@@ -1,27 +1,23 @@
-import mlflow.pytorch
-import torch
+from PIL import Image
+from pathlib import Path
 import os
-import copy
+import json
 import torch.nn as nn
 import torchvision.models as models
 import torchvision.transforms as transforms
 from torchvision import datasets, transforms
-import torch.optim as optim
-from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
-import mlflow
-import dagshub
+import csv
 import numpy as np
-from PIL import Image
-from pathlib import Path
 from dotenv import load_dotenv
 from torch.utils.data import Dataset
-from torch.utils.data import random_split
-import matplotlib.pyplot as plt
 
 load_dotenv()
 
-labels = os.environ.get('TYPE_LABEL')
+categories = os.environ.get('TYPE_LABEL')
+cloth_labels = os.environ.get('FASHION_LABELS')
+cloth_images = os.environ.get('IMAGE_FASHION_DIR')
+cropped = os.environ.get('CROPPED_IMAGES')
 
 # Used the normalize the inputs
 mean = np.array([0.485, 0.456, 0.406])
@@ -51,9 +47,9 @@ def get_type_labels():
     objects = []
     detailed = []
 
-    for file, mid, dirs in os.walk(labels):
+    for file, mid, dirs in os.walk(categories):
         for d in dirs:
-            with open(f'{labels}\\{d}', 'r', encoding='utf-8') as f:
+            with open(f'{categories}\\{d}', 'r', encoding='utf-8') as f:
                 if d == 'objects.txt':
                     objects.append(f.read().splitlines())
                 elif d == 'fine_details.txt':
@@ -63,3 +59,68 @@ def get_type_labels():
 
 # Next you need to process all the clothing_labels.json to train and val on them
 # Process clothing images to train and val on them
+class FashionData(Dataset):
+    def __init__(self, categories, attr):
+        self.categories = categories
+        self.attr = attr
+
+    def __len__(self):
+        return len(self.categories), len(self.attr)
+
+    def __getitem__(self):
+        pass
+
+def image_labels():
+    with open(cloth_labels, 'r') as f:
+        labels = json.load(f)
+
+    return labels
+
+def extract_labels(labels, file):
+    return labels.get(file) # These functions process the gotten index
+
+def get_categories(values, file):
+    idk = []
+    ref = []
+    if values is not None:
+        idk.append(values[-1][-1])
+
+    ref.append(values)
+    print(len(idk))
+    '''
+    for val in values:
+        if val is not None:
+            if len(val) > 3:
+                print(val[-1])
+                #print(val)
+    '''
+#def save_image(val, file):
+
+
+
+def pass_images():
+    labels = image_labels() # Mapping of file -> categories, attributes
+    idk = []
+    ref = []
+    nu = []
+    for file, mid, dirs in os.walk(cloth_images):
+        for d in dirs: # Gets all file names to map to clothing_labels
+            values = extract_labels(labels, d) 
+            #print(values)# Extracts the category and attributes of image
+            #get_categories(values, d)
+            if values is not None:
+                idk.append(values[-1][-1])
+
+            ref.append(values)
+            if values is None:
+                nu.append(None)
+
+    print(len(idk))
+    print(len(ref))
+    print(len(nu))
+pass_images()
+
+'''
+Open with PIL.Image.open("image.jpg"), crop with img.crop((xmin, ymin, xmax, ymax)), 
+then transform to a tensor using torchvision.transforms.v2.functional.to_image.
+'''

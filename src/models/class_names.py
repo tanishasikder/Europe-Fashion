@@ -100,7 +100,7 @@ file_names, images_temp = get_images()
 images = process_values(file_names)
 processed = decode_images(images, images_temp)
 
-with open('analysis.json', 'w') as f:
+with open('clothing_labels.json', 'w') as f:
     json.dump(processed, f, indent=4)
 
 

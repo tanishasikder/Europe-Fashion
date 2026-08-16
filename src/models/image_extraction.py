@@ -11,12 +11,11 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # CNN class to classify image features
 class CNN(nn.Module):
-    def __init__(self, co_names, cat_names, appar_names, fg_names):
+    def __init__(self, co_names, cat_names, attr_names):
         super().__init__()
         self.color_names = co_names
         self.category_names = cat_names
-        self.apparels = appar_names
-        self.fine_grains = fg_names
+        self.apparels = attr_names
         # Load in the pretrained resnet model
         model = models.vgg16(weights=VGG16_Weights.DEFAULT)
 
@@ -34,8 +33,7 @@ class CNN(nn.Module):
         # Head to classify the clothing category
         self.fc_category = nn.Linear(num_features, len(cat_names))
         self.dropout2 = nn.Dropout(0.5)
-        self.fc_apparel = nn.Linear(num_features, len(appar_names))
-        self.fc_fg = nn.Linear(num_features, len(fg_names))
+        self.fc_attr = nn.Linear(num_features, len(attr_names))
         self.to(device)
     
     def forward(self, x):
@@ -49,7 +47,6 @@ class CNN(nn.Module):
         color = self.fc_color(x)
         x = self.dropout2(x)
         category = self.fc_category(x)
-        apparel = self.fc_apparel(x)
-        fine_grains = self.fc_fg(x)
+        attr = self.fc_attr(x)
         # Return the classification
-        return color, category, apparel, fine_grains
+        return color, category, attr

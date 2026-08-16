@@ -1,7 +1,7 @@
 import mlflow.pytorch
 import torch
 import os
-from process_data import fashion_transform, color_transform, get_colors
+from src.models.process_color import fashion_transform, color_transform, get_colors
 import torch.nn as nn
 import torchvision.models as models
 import torchvision.transforms as transforms
@@ -16,7 +16,8 @@ from PIL import Image
 from pathlib import Path
 import sys
 from dotenv import load_dotenv
-from process_data import ColorData, get_data
+from src.models.process_color import ColorData, get_color_data
+from process_image import get_type_labels
 
 current_dir = Path(__file__).resolve().parent
 root_dir = current_dir.parents[1]
@@ -72,7 +73,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
 
                     with torch.set_grad_enabled(phase=='train'):
                         # Gets the outputs from resnet model
-                        color, category, apparel, fg = model(inputs)
+                        color, category, attr = model(inputs)
 
                         # Labels is a tensor of indices from the original file name
                         # Must separate labels to match color and clothing type
@@ -138,7 +139,7 @@ if __name__ == '__main__':
                                             for x in sets}
 
     # Use the custom class and functions for the color data
-    train, test = get_data()
+    train, test = get_color_data()
      
     # Loading the data in batches. Separate dataloaders for color and type tests
     fashion_loaders = {
@@ -152,14 +153,15 @@ if __name__ == '__main__':
         'train' : DataLoader(train, batch_size=32, shuffle=True, num_workers=4, pin_memory=True),
         'val' : DataLoader(test, batch_size=32, shuffle=False, num_workers=4, pin_memory=True)
     }
-    color = ColorData()
 
+    color = ColorData()
     dataset_sizes = {x : len(image_datasets[x]) for x in sets}
 
     # Configuring with color and clothing classes. Removing dashes
     codes = get_colors() # Dict where the values have the colors as strings
+    clothing, attr = get_type_labels()
 
-    model = CNN(list(codes.values()), type_names)
+    model = CNN(list(codes.values()), clothing, attr)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=1e-4, weight_decay=1e-4)
 

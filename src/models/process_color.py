@@ -27,26 +27,6 @@ std = np.array([0.229, 0.224, 0.225])
 
 color_dir = os.environ.get('COLOR_DIR')
 
-def fashion_transform():
-    # Fashion images have bigger transformations
-    fashion_transforms = {
-        'train' : transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.RandomHorizontalFlip(),
-            #transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.5, hue=0.5),
-            transforms.ToTensor(),
-            transforms.Normalize(mean, std)
-        ]),
-        'val' : transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(mean, std)
-        ])
-    }
-    return fashion_transforms
-
 def color_transform():
     color_transforms = {
         'train' : transforms.Compose([
@@ -139,7 +119,7 @@ class ColorData(Dataset):
         }
         return sample
 
-def get_data():
+def get_color_data():
     dict, paths = process_colors()    
     transform = color_transform()
     labels, images = make_data(dict, paths, transform)
@@ -148,7 +128,7 @@ def get_data():
 
     return train, test
 
-train, test = get_data()
+train, test = get_color_data()
 
 codes = get_colors()
 
