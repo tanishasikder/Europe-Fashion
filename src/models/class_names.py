@@ -87,7 +87,7 @@ def decode_images(images, images_temp):
             if describe: # Not every img has an attribute
                 attr = get_attr(describe, attributes)
             else:
-                attr = None
+                attr = 'None'
 
             if img in processed:
                 processed[img].append([cat, attr, bbox])

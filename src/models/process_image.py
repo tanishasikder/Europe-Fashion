@@ -79,45 +79,34 @@ def image_labels():
 def extract_labels(labels, file):
     return labels.get(file) # These functions process the gotten index
 
-def get_categories(values, file):
-    idk = []
-    ref = []
-    if values is not None:
-        idk.append(values[-1][-1])
+def crop_image(values, file, i):
+    with open(f'{cloth_images}/{file}', 'rb') as f:
+        img = Image.open(f)
 
-    ref.append(values)
-    print(len(idk))
-    '''
-    for val in values:
-        if val is not None:
-            if len(val) > 3:
-                print(val[-1])
-                #print(val)
-    '''
-#def save_image(val, file):
+        x, y, w, h = values 
+        left = x
+        top = y
+        right = x + w
+        bottom = y + h
 
-
+        crop = img.crop([left, top, right, bottom])
+        path = f'{cropped}\\{i}{file}' # Save with a different index everytime
+        crop.save(path)
 
 def pass_images():
     labels = image_labels() # Mapping of file -> categories, attributes
-    idk = []
-    ref = []
-    nu = []
+    # Doing values[-1][-1] gets the bbox but there are None values
     for file, mid, dirs in os.walk(cloth_images):
-        for d in dirs: # Gets all file names to map to clothing_labels
-            values = extract_labels(labels, d) 
-            #print(values)# Extracts the category and attributes of image
-            #get_categories(values, d)
-            if values is not None:
-                idk.append(values[-1][-1])
+        for i in range(len(dirs)): # Gets all file names to map to clothing_labels
+            values = extract_labels(labels, dirs[i]) 
+            if values:  # Most are lists values[-1][-1] but some are floats. find out which ones
+                if isinstance(values[-1][-1], float):
+                    print("The deep element is a single float!")
+                    print(dirs)
+                    print(values)
+                    
+                #crop_image(values[-1][-1], dirs[i], i)
 
-            ref.append(values)
-            if values is None:
-                nu.append(None)
-
-    print(len(idk))
-    print(len(ref))
-    print(len(nu))
 pass_images()
 
 '''
