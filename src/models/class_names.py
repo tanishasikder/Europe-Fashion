@@ -78,7 +78,6 @@ def decode_images(images, images_temp):
         id = images[img]['id']
         # Get the dict in images_temp that has the values first
         results = by_image_id[id]
-
         for result in results:
             cat = get_cat(result['category_id'], categories)
             describe = result['attribute_id']
@@ -98,9 +97,11 @@ def decode_images(images, images_temp):
 
 file_names, images_temp = get_images()
 images = process_values(file_names)
+#print(len(images_temp))
+#print(len(images))
 processed = decode_images(images, images_temp)
-
-with open('clothing_labels.json', 'w') as f:
-    json.dump(processed, f, indent=4)
+#print(len(processed))
+#with open('clothing_labels.json', 'w') as f:
+#    json.dump(processed, f, indent=4)
 
 
