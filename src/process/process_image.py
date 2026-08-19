@@ -86,10 +86,13 @@ def get_data(values, dirs, i):
         for val in values:
             if isinstance(val[-1], list):
                 crop = crop_image(val[-1], dirs)
+
+                if crop == 'continue':
+                    continue # Skip if things are wrong.
+
                 file_name = f'{i}{dirs}'
                 path = f'{cropped}\\{file_name}' # Save with a different index everytime
-                print(val[-1])
-                print(dirs)
+
                 crop.save(path)
 
                 cat = val[-3]
@@ -102,7 +105,14 @@ def crop_image(values, file):
     with open(f'{cloth_images}/{file}', 'rb') as f:
         img = Image.open(f)
 
+        if len(values) < 4:
+            return 'continue'
+        
         x, y, w, h = values # Fashionpedia does not follow PIL format
+
+        if w <= 0 or h <= 0:
+            return 'continue'
+
         left = x
         top = y
         right = x + w

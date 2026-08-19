@@ -1,7 +1,7 @@
 import mlflow.pytorch
 import torch
 import os
-from src.models.process_color import fashion_transform, color_transform, get_colors
+from src.process.process_color import fashion_transform, color_transform, get_colors
 import torch.nn as nn
 import torchvision.models as models
 import torchvision.transforms as transforms
@@ -16,8 +16,8 @@ from PIL import Image
 from pathlib import Path
 import sys
 from dotenv import load_dotenv
-from src.models.process_color import ColorData, get_color_data
-from process_image import get_type_labels
+from src.process.process_color import ColorData, get_color_data
+from src.process.process_image import get_type_labels
 
 current_dir = Path(__file__).resolve().parent
 root_dir = current_dir.parents[1]
