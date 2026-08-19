@@ -58,19 +58,6 @@ def get_type_labels():
 
     return objects, detailed
 
-# Next you need to process all the clothing_labels.json to train and val on them
-# Process clothing images to train and val on them
-class FashionData(Dataset):
-    def __init__(self, categories, attr):
-        self.categories = categories
-        self.attr = attr
-
-    def __len__(self):
-        return len(self.categories), len(self.attr)
-
-    def __getitem__(self):
-        pass
-
 def image_labels():
     with open(cloth_labels, 'r') as f:
         labels = json.load(f)

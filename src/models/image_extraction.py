@@ -2,12 +2,17 @@ import torch
 import torch.nn as nn
 import torchvision.models as models
 from torchvision.models import vgg16, VGG16_Weights
-
 import numpy as np
 from PIL import Image
+from dotenv import load_dotenv
+import os
 
 # Push to GPU if it is available, CPU if not
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+load_dotenv()
+
+files = os.environ.get('CROPPED_CSV')
 
 # CNN class to classify image features
 class CNN(nn.Module):

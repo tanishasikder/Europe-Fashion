@@ -1,7 +1,6 @@
 import mlflow.pytorch
 import torch
 import os
-from src.process.process_color import fashion_transform, color_transform, get_colors
 import torch.nn as nn
 import torchvision.models as models
 import torchvision.transforms as transforms
@@ -16,18 +15,17 @@ from PIL import Image
 from pathlib import Path
 import sys
 from dotenv import load_dotenv
-from src.process.process_color import ColorData, get_color_data
-from src.process.process_image import get_type_labels
 
 current_dir = Path(__file__).resolve().parent
 root_dir = current_dir.parents[1]
 
-sys.path.insert(0, str(root_dir))
+sys.path.insert(0, str(root_dir)) # Fix the path before importing below classes
 
+from src.process.process_color import color_transform, get_colors
 from src.core.tracking_config import Dagshub_Track
 from src.models.image_extraction import CNN
-# Push to GPU if it is available, CPU if not
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+from src.process.process_color import ColorData, get_color_data
+from src.process.process_image import get_type_labels, fashion_transform
 
 load_dotenv()
 
@@ -68,32 +66,28 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
 
                 # Loop over the labels and the images in the dataloader
                 for input, label in fashion_loaders[phase]:
-                    inputs = input.to(device)
-                    label = label.to(device)
 
                     with torch.set_grad_enabled(phase=='train'):
                         # Gets the outputs from resnet model
-                        color, category, attr = model(inputs)
+                        color, cat, attr = model(input)
 
-                        # Labels is a tensor of indices from the original file name
-                        # Must separate labels to match color and clothing type
-                        color_labels = torch.tensor([color_names.index(image_datasets[phase].classes[l].split('_')[0])
-                                                    for l in label])
-                        type_labels = torch.tensor([type_names.index(image_datasets[phase].classes[l].split('_')[1])
-                                                    for l in label])
+                        color_labels = get_colors() 
+                        cat_labels, attr_labels = get_type_labels()
 
-                        color_labels = color_labels.to(device)
-                        type_labels = type_labels.to(device)
+                        color_labels = color_labels.values()
 
                         # Gets the largest score then calculates loss
                         _, color_pred = torch.max(color, 1)
-                        color_loss = criterion(color, color_labels)
+                        color_loss = criterion(color_pred, color_labels)
 
-                        _, type_pred = torch.max(category, 1)
-                        type_loss = criterion(category, type_labels)
+                        _, cat_pred = torch.max(cat, 1)
+                        cat_loss = criterion(cat_pred, cat_labels)
+
+                        _, attr_pred = torch.max(attr, 1)
+                        attr_loss = criterion(attr_pred, attr_labels)
 
                         # Overall loss from both predictions
-                        loss = type_loss + color_loss
+                        loss = cat_loss + color_loss + attr_loss
 
                         # Optimizes and backward propagates if it is training
                         if phase == 'train':
@@ -102,9 +96,10 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
                             optimizer.step()
                     
                     # Calculates the loss and correct labels
-                    run_loss += loss.item() * inputs.size(0)
+                    run_loss += loss.item() * input.size(0)
                     correct += torch.sum(color_pred == (color_labels))
-                    correct += torch.sum(type_pred == (type_labels))
+                    correct += torch.sum(cat_pred == (cat_labels))
+                    correct += torch.sum(attr_pred == (attr_labels))
             
             # Overall loss and accuracy of this model
             epoch_loss = run_loss / dataset_sizes[phase]

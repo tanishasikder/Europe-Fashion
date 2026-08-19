@@ -77,8 +77,8 @@ def make_data(data, paths, transform):
         for file in value:
             with open(f'{paths[index]}\\{key}\\{file}', 'rb') as f:
                 img = Image.open(f)
-                image = transform['train']
-                image = image(img)
+                image_trans = transform['train']
+                image = image_trans(img)
 
                 name = encoding(color)
                 labels.append(name)
@@ -98,9 +98,9 @@ def get_colors():
         'Orange' : 3,
         'Pink' : 4,
         'Purple' : 5,
-        'Skyblue' : 6,
-        'White' : 6,
-        'Yellow' : 7
+        'Skyblue' : 7,
+        'White' : 7,
+        'Yellow' : 8
     }
     return codes
 
@@ -127,18 +127,3 @@ def get_color_data():
     train, test = split_data(colors)
 
     return train, test
-
-train, test = get_color_data()
-
-codes = get_colors()
-
-sample = train[5]
-labels = sample['labels'].item()
-
-keys = {v: k for k, v in codes.items()}
-
-print(keys[labels])
-
-image = sample['images']
-plt.imshow(image.permute(1, 2, 0).cpu().detach().numpy())
-plt.show()
