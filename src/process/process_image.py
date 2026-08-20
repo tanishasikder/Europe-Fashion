@@ -11,38 +11,14 @@ import csv
 import numpy as np
 from dotenv import load_dotenv
 from torch.utils.data import Dataset
-from class_names import decode_images
+import torch
+import torchvision.transforms.v2 as transforms
 
 load_dotenv()
 
 categories = os.environ.get('TYPE_LABEL')
 cloth_labels = os.environ.get('FASHION_LABELS')
 cloth_images = os.environ.get('IMAGE_FASHION_DIR')
-cropped = os.environ.get('CROPPED_IMAGES')
-
-# Used the normalize the inputs
-mean = np.array([0.485, 0.456, 0.406])
-std = np.array([0.229, 0.224, 0.225])
-
-def fashion_transform():
-    # Fashion images have bigger transformations
-    fashion_transforms = {
-        'train' : transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.RandomHorizontalFlip(),
-            #transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.5, hue=0.5),
-            transforms.ToTensor(),
-            transforms.Normalize(mean, std)
-        ]),
-        'val' : transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(mean, std)
-        ])
-    }
-    return fashion_transforms
 
 def get_type_labels():
     objects = []
@@ -118,9 +94,7 @@ def pass_images():
             if values:  # Most are lists values[-1][-1] but some are floats. find out which ones
                 get_data(values, dirs[i], i)
 
-                
 
-pass_images()
 
 '''
 Open with PIL.Image.open("image.jpg"), crop with img.crop((xmin, ymin, xmax, ymax)), 

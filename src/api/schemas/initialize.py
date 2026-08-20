@@ -5,7 +5,7 @@ import torch
 from torchvision import transforms
 import torchvision.models as models
 # Loading in the custom model
-from src.models.image_extraction import CNN
+from src.models.architecture.image_extraction import CNN
 from pathlib import Path
 import sys
 from joblib import load

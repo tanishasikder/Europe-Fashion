@@ -95,6 +95,7 @@ def decode_images(images, images_temp):
 
     return processed
 
+'''
 file_names, images_temp = get_images()
 images = process_values(file_names)
 #print(len(images_temp))
@@ -103,5 +104,5 @@ processed = decode_images(images, images_temp)
 #print(len(processed))
 #with open('clothing_labels.json', 'w') as f:
 #    json.dump(processed, f, indent=4)
-
+'''
 

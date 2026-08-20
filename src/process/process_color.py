@@ -1,4 +1,3 @@
-import mlflow.pytorch
 import torch
 import os
 import copy
@@ -6,11 +5,6 @@ import torch.nn as nn
 import torchvision.models as models
 import torchvision.transforms as transforms
 from torchvision import datasets, transforms
-import torch.optim as optim
-from torch.optim import lr_scheduler
-from torch.utils.data import DataLoader
-import mlflow
-import dagshub
 import numpy as np
 from PIL import Image
 from pathlib import Path
