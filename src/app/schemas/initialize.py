@@ -12,9 +12,6 @@ from joblib import load
 from PIL import Image
 from src.core.tracking_config import Dagshub_Track
 
-# Use the DagsHub Mlflow server to log things
-track = Dagshub_Track()
-track.initialize()
 # Makes python looks at the parent root directories to find the model
 parent = Path(__file__).parent
 path = parent / "stats_model.joblib"

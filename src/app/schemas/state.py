@@ -40,14 +40,13 @@ def get_color_category():
 
     return color, category
 
-@asynccontextmanager
-async def initialize_stats_model(StatsService):
+def initialize_stats_model(StatsService):
     path = parent / "stats_model.joblib"
     # deffo wrong try again
     stats_model = load(path)
     return StatsService(stats_model)
 
-async def initialize_image_model(CNN):
+def initialize_image_model(CNN): # Why do we have this when we have the model from dagshub
     color, category = get_color_category()
     # Loading in the clothing predict model with error handling 
     image_model = CNN(color, category)

@@ -1,17 +1,18 @@
-from fastapi import APIRouter, Request, Depends, UploadFile, File
+from fastapi import Request, Depends, UploadFile, File
 from fastapi.responses import HTMLResponse
 from src.app.services.db_service.database import supabase
 from models import image_extraction
 from fastapi.templating import Jinja2Templates
 import os
-
-router = APIRouter()
+from input_router import router
+from main import limiter 
 
 TEMPLATE_PATH=os.getenv('TEMPLATE_PATH')
 
 templates = Jinja2Templates(directory=TEMPLATE_PATH)
 
 @router.get("/", response_class=HTMLResponse)
+@limiter.limit('3/minute')
 async def read_clothes(request: Request): 
     '''
     Use in services/db_service/ insert function 
@@ -20,9 +21,11 @@ async def read_clothes(request: Request):
     return request
 
 @router.post('/add')
+@limiter.limit('3/minute')
 async def add_clothes( 
+    request : Request, # Need this or limiter will not work
     clothes : image_extraction = Depends(image_extraction.as_form),
-    image: UploadFile = File(None)
+    image: UploadFile = File(None), 
 ):
     '''
     Use for services/db_service/insert 

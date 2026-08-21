@@ -1,19 +1,20 @@
 from contextlib import asynccontextmanager
-import joblib
 import os
 import sys
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from src.app.routers import clothing_router
 from supabase import create_client, Client
 import mlflow
-from fastapi import APIRouter
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 # Loading in the custom model
 from src.models import initialize_image_model
 from src.models import initialize_stats_model
+from routers.input_router import router 
+from src.core.limiter import get_limit
 
 def database():
     supabase: Client = create_client(
@@ -25,12 +26,12 @@ def database():
     return bucket
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI):  # Problematic. Look more into this
     app.state.image_model = initialize_image_model()
     app.state.stats_model = initialize_stats_model()
     yield
 
-def cloud_image_model():
+def cloud_image_model(): # Gets model from DagsHub
     model_name = os.getenv('IMAGE_MODEL_NAME')
     client = mlflow.MlflowClient()
     version = client.get_latest_versions(name=model_name)[0].version
@@ -40,10 +41,15 @@ def cloud_image_model():
 
     return image_model
 
-def start_app():
-    app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan)
+    
+app.mount("/static", StaticFiles(directory="./"))
 
-    #app.mount("/static", StaticFiles(directory="./"))
-    #templates = Jinja2Templates(directory="./templates")
+app.include_router(router)
+app.state.limiter = get_limit() # Initializes the rate limiter
 
-    app.include_router()
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+templates = Jinja2Templates(directory="./templates") # Use this for db_router stuff
+
+    
