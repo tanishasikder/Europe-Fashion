@@ -1,0 +1,53 @@
+<!-- templates/add_clothes.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Clothes</title>
+</head>
+<body>
+
+    <h1>Add Clothing Item</h1>
+
+    <form method="POST" action="/clothes">
+
+        <label for="name">Name:</label>
+        <input
+            type="text"
+            id="name"
+            name="name"
+            required
+        >
+
+        <br><br>
+
+        <label for="category">Category:</label>
+        <input
+            type="text"
+            id="category"
+            name="category"
+            required
+        >
+
+        <br><br>
+
+        <label for="description">Description:</label>
+        <textarea
+            id="description"
+            name="description"
+        ></textarea>
+
+        <br><br>
+
+        <button type="submit">Add Clothes</button>
+
+    </form>
+
+    <br>
+
+    <a href="/clothes">Back to Clothes</a>
+
+</body>
+</html>

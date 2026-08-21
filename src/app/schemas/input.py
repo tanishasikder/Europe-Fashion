@@ -8,13 +8,7 @@ import json
 from PIL import Image
 import io
 #from validator import get_user_params
-from src.app.services.predict import image_output
-app = FastAPI()
-
-# Basic health check to ensure server is functioning
-@app.get("/health")
-def root():
-    return {"status" : "OK"}
+from src.app.services.model_service.predict import image_output
 
 # Enums are safer
 class ColorParams(str, Enum):
@@ -57,15 +51,13 @@ class ClothingRequest(BaseModel):
    
 def clean_domain(cls, v):
     return v.lower().strip().removeprefix("https://").removeprefix("www")
-    
-@app.post("/upload") # Rate limiter here
-async def upload(
-        file: UploadFile = File(...),
+
+def get_upload(
+        contents : bytes,
         size: str = Form(...),
         price: str = Form(...)
     ):
     try:
-        contents = await file.read()
         image = Image.open(io.BytesIO(contents)).convert("RGB")
         color, category = image_output(image)
 

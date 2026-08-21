@@ -54,6 +54,7 @@ def store_image(matrix: List[ClothingRequest],
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=1, max=8)
 )
+
 def remove_expired():
     # Calculating the threshold of expiration
     time = datetime.now() - timedelta(hours=2)

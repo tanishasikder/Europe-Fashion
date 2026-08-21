@@ -6,9 +6,9 @@ from pydantic import BaseModel
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
-#from rag import get_rag_response
+from rag import get_rag_response
 from src.app.dependencies import get_image_model, get_stats_model
-from src.app.services.services import get_user_params
+from src.app.services.model_service.services import get_user_params
 from src.app.schemas.input import input
 from src.app.schemas.input import ClothingRequest
 from torchvision import transforms
@@ -27,15 +27,12 @@ data_transforms = transforms.Compose([
     transforms.Normalize(mean, std)
 ])
 
-# A lot of rate limiters needed here 
-@router.get("/query/")
 async def query_rag_system(query: str):
     try:
         response = await get_rag_response(query)
         return {"query": query, "response": response}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 async def initialize_preds(numerical_outputs):
     query = (f"Using the following user parameters {numerical_outputs}"

@@ -1,14 +1,15 @@
 from fastapi import APIRouter, Request, Depends, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
-from src.app.routers.database import supabase, SUPABASE_BUCKET, SUPABASE_URL
-from models import image_extracton
+from src.app.services.db_service.database import supabase, SUPABASE_BUCKET, SUPABASE_URL
+from models import image_extraction
 from fastapi.templating import Jinja2Templates
 import os
 
 TEMPLATE_PATH=os.getenv('TEMPLATE_PATH')
 
-router = APIRouter()
 templates = Jinja2Templates(directory=TEMPLATE_PATH)
+
+router = APIRouter()
 
 @router.get("/", response_class=HTMLResponse)
 async def read_clothes(request: Request):
@@ -22,8 +23,7 @@ async def add_clothes_form(request: Request):
 
 @router.post('/add')
 async def add_clothes(
-    request: Request,
-    clothes : image_extracton = Depends(image_extracton.as_form),
+    clothes : image_extraction = Depends(image_extraction.as_form),
     image: UploadFile = File(None)
 ):
     image_url = None

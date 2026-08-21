@@ -192,7 +192,85 @@
       font-size: 0.85rem;
       margin-top: 8px;
     }
+
+    /* --- Auth styles --- */
+    .auth-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .auth-tab {
+      flex: 1;
+      padding: 10px;
+      background: #f0f0f5;
+      color: #555;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .auth-tab.active {
+      background: #f0e9ff;
+      color: rgb(140, 60, 220);
+      border-color: rgb(200, 97, 255);
+    }
+
+    .auth-form {
+      display: none;
+      text-align: left;
+    }
+
+    .auth-form.active {
+      display: block;
+    }
+
+    .session-bar {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      background: #f0fff4;
+      border-left: 4px solid #4c4;
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin-bottom: 20px;
+      color: #060;
+      font-size: 0.95rem;
+    }
+
+    .session-bar.show {
+      display: flex;
+    }
+
+    .session-bar button {
+      width: auto;
+      padding: 8px 16px;
+      font-size: 0.85rem;
+      background: #444;
+    }
+
+    .locked {
+      opacity: 0.5;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .auth-status {
+      margin-top: 14px;
+      font-size: 0.9rem;
+      text-align: left;
+      display: none;
+    }
+
+    .auth-status.show {
+      display: block;
+    }
   </style>
+  <!-- Supabase JS client (v2) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <div class="container">
@@ -200,8 +278,52 @@
     <p class="subtitle">Get Consumer Predictions for Clothing Products</p>
     <p class="subtitle1">A tool to help you understand how your</p>
     <p class="subtitle2">clothing will do in the current market</p>
+
+    <!-- Signed-in banner -->
+    <div id="sessionBar" class="session-bar">
+      <span id="sessionEmail"></span>
+      <button id="logoutBtn" type="button">Log out</button>
+    </div>
+
+    <!-- Auth Section (shown when logged out) -->
+    <div class="card" id="authCard">
+      <h2>Sign in to continue</h2>
+      <div class="auth-tabs">
+        <div class="auth-tab active" id="loginTab">Log In</div>
+        <div class="auth-tab" id="signupTab">Sign Up</div>
+      </div>
+
+      <!-- Login form -->
+      <form id="loginForm" class="auth-form active">
+        <div class="form-group">
+          <label for="loginEmail">Email</label>
+          <input type="email" id="loginEmail" placeholder="you@example.com" required />
+        </div>
+        <div class="form-group">
+          <label for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" placeholder="••••••••" required />
+        </div>
+        <button type="submit" id="loginBtn">Log In</button>
+      </form>
+
+      <!-- Sign-up form -->
+      <form id="signupForm" class="auth-form">
+        <div class="form-group">
+          <label for="signupEmail">Email</label>
+          <input type="email" id="signupEmail" placeholder="you@example.com" required />
+        </div>
+        <div class="form-group">
+          <label for="signupPassword">Password</label>
+          <input type="password" id="signupPassword" placeholder="At least 6 characters" minlength="6" required />
+        </div>
+        <button type="submit" id="signupBtn">Sign Up</button>
+      </form>
+
+      <div id="authStatus" class="auth-status status"></div>
+    </div>
+
     <!-- Image Upload Section -->
-    <div class="card">
+    <div class="card" id="uploadCard">
       <h2>1. Upload Clothing Image</h2>
       <input type="file" id="imageUpload" accept="image/*" />
       <div class="preview-container">
@@ -210,7 +332,7 @@
     </div>
 
     <!-- Size + Price Form -->
-    <div class="card">
+    <div class="card" id="submitCard">
       <h2>2. Enter Size and Price</h2>
       <form id="uploadForm">
         <div class="form-group">
@@ -230,6 +352,138 @@
   </div>
 
   <script>
+    // --- Supabase setup ---
+    // Replace these with your project's values (Project Settings → API in the Supabase dashboard).
+    // The anon/public key is safe to expose in frontend code — it relies on your Row Level Security
+    // policies to actually restrict access, so make sure those are set up on the backend.
+    const SUPABASE_URL = "https://YOUR-PROJECT-REF.supabase.co";
+    const SUPABASE_ANON_KEY = "YOUR-SUPABASE-ANON-KEY";
+
+    const { createClient } = supabase;
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // --- Auth elements ---
+    const authCard = document.getElementById("authCard");
+    const uploadCard = document.getElementById("uploadCard");
+    const submitCard = document.getElementById("submitCard");
+    const sessionBar = document.getElementById("sessionBar");
+    const sessionEmail = document.getElementById("sessionEmail");
+    const logoutBtn = document.getElementById("logoutBtn");
+
+    const loginTab = document.getElementById("loginTab");
+    const signupTab = document.getElementById("signupTab");
+    const loginForm = document.getElementById("loginForm");
+    const signupForm = document.getElementById("signupForm");
+    const loginBtn = document.getElementById("loginBtn");
+    const signupBtn = document.getElementById("signupBtn");
+    const authStatus = document.getElementById("authStatus");
+
+    let currentSession = null;
+
+    function showAuthStatus(message, isError) {
+      authStatus.textContent = message;
+      authStatus.classList.add("show");
+      authStatus.classList.toggle("error", !!isError);
+      authStatus.classList.toggle("success", !isError);
+    }
+
+    // Toggle between Log In / Sign Up tabs
+    loginTab.addEventListener("click", () => {
+      loginTab.classList.add("active");
+      signupTab.classList.remove("active");
+      loginForm.classList.add("active");
+      signupForm.classList.remove("active");
+      authStatus.classList.remove("show");
+    });
+
+    signupTab.addEventListener("click", () => {
+      signupTab.classList.add("active");
+      loginTab.classList.remove("active");
+      signupForm.classList.add("active");
+      loginForm.classList.remove("active");
+      authStatus.classList.remove("show");
+    });
+
+    // Reflect the current session in the UI: lock/unlock the upload cards,
+    // show/hide the auth card, and show who's logged in.
+    function renderSessionState(session) {
+      currentSession = session;
+
+      if (session) {
+        authCard.style.display = "none";
+        sessionBar.classList.add("show");
+        sessionEmail.textContent = `Signed in as ${session.user.email}`;
+        uploadCard.classList.remove("locked");
+        submitCard.classList.remove("locked");
+      } else {
+        authCard.style.display = "block";
+        sessionBar.classList.remove("show");
+        uploadCard.classList.add("locked");
+        submitCard.classList.add("locked");
+      }
+    }
+
+    // Sign up with email + password
+    signupForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      signupBtn.disabled = true;
+      const email = document.getElementById("signupEmail").value;
+      const password = document.getElementById("signupPassword").value;
+
+      const { data, error } = await sb.auth.signUp({ email, password });
+
+      signupBtn.disabled = false;
+
+      if (error) {
+        showAuthStatus(error.message, true);
+        return;
+      }
+
+      if (!data.session) {
+        // Email confirmation is likely required before a session is issued
+        showAuthStatus("Account created! Check your email to confirm before logging in.", false);
+      } else {
+        showAuthStatus("Account created and signed in!", false);
+        renderSessionState(data.session);
+      }
+    });
+
+    // Log in with email + password
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      loginBtn.disabled = true;
+      const email = document.getElementById("loginEmail").value;
+      const password = document.getElementById("loginPassword").value;
+
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+
+      loginBtn.disabled = false;
+
+      if (error) {
+        showAuthStatus(error.message, true);
+        return;
+      }
+
+      renderSessionState(data.session);
+    });
+
+    // Log out
+    logoutBtn.addEventListener("click", async () => {
+      await sb.auth.signOut();
+      renderSessionState(null);
+    });
+
+    // Keep UI in sync with token refreshes, expiry, sign-in/out from other tabs, etc.
+    sb.auth.onAuthStateChange((_event, session) => {
+      renderSessionState(session);
+    });
+
+    // On load, check for an existing session (e.g. after a page refresh)
+    (async () => {
+      const { data } = await sb.auth.getSession();
+      renderSessionState(data.session);
+    })();
+
     const imageUpload = document.getElementById("imageUpload");
     const imagePreview = document.getElementById("imagePreview");
     const uploadForm = document.getElementById("uploadForm");
@@ -255,6 +509,11 @@
     uploadForm.addEventListener("submit", async (e) => {
       e.preventDefault();
 
+      if (!currentSession) {
+        alert("Please log in first.");
+        return;
+      }
+
       const file = imageUpload.files[0];
       if (!file) {
         alert("Please upload a clothing image first.");
@@ -279,8 +538,18 @@
       submissionStatus.classList.remove("error", "success");
 
       try {
+        // Pull the freshest session (the client auto-refreshes the token in the
+        // background, so re-fetching here avoids sending a stale/expired one).
+        const { data: { session } } = await sb.auth.getSession();
+        if (!session) {
+          throw new Error("Your session expired. Please log in again.");
+        }
+
         const res = await fetch("http://localhost:8000/upload", {
           method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`
+          },
           body: formData
         });
 

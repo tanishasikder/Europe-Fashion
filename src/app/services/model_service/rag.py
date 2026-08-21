@@ -56,6 +56,7 @@ def make_agent(): # Rate limiter
     @tool(response_format="context_and_artifact")
     def retrieval_context(query: str):
         '''retrieve information to help answer a query'''
+        documents = make_agent()
         retrieved_docs = documents.similarity_search(query, k=2)
         serialized = "\n\n".join(
             (f"source: {doc.metadata}\nContent: {doc.page_content}")
