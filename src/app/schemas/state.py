@@ -24,7 +24,7 @@ std = np.array([0.229, 0.224, 0.225])
 # Transformations for user input images
 data_transforms = transforms.Compose([
     transforms.CenterCrop(224),
-    transforms.RandomHorizontalFlip(),
+    #transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     transforms.Normalize(mean, std)
 ])

@@ -5,7 +5,7 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.api.dependencies.depend import get_image_model
+from src.app.dependencies import get_image_model
 from src.core.lifespan import lifespan
 from fastapi import FastAPI
 app = FastAPI(lifespan=lifespan)

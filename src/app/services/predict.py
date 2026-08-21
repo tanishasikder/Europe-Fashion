@@ -7,10 +7,10 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 #from rag import get_rag_response
-from src.api.dependencies.depend import get_image_model, get_stats_model
-from src.api.services.services import get_user_params
-from src.api.schemas.input import input
-from src.api.schemas.input import ClothingRequest
+from src.app.dependencies import get_image_model, get_stats_model
+from src.app.services.services import get_user_params
+from src.app.schemas.input import input
+from src.app.schemas.input import ClothingRequest
 from torchvision import transforms
 import numpy as np
 
@@ -27,7 +27,7 @@ data_transforms = transforms.Compose([
     transforms.Normalize(mean, std)
 ])
 
-
+# A lot of rate limiters needed here 
 @router.get("/query/")
 async def query_rag_system(query: str):
     try:

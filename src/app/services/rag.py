@@ -9,7 +9,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.agents import create_agent
 import PyPDFLoader
 
-def make_agent():
+def make_agent(): # Rate limiter
     # Getting LangChain to log everything
     langsmith = os.getenv("LANGSMITH_TRACING")
 

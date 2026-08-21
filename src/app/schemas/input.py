@@ -8,7 +8,7 @@ import json
 from PIL import Image
 import io
 #from validator import get_user_params
-from src.api.services.predict import image_output
+from src.app.services.predict import image_output
 app = FastAPI()
 
 # Basic health check to ensure server is functioning
@@ -58,7 +58,7 @@ class ClothingRequest(BaseModel):
 def clean_domain(cls, v):
     return v.lower().strip().removeprefix("https://").removeprefix("www")
     
-@app.post("/upload")
+@app.post("/upload") # Rate limiter here
 async def upload(
         file: UploadFile = File(...),
         size: str = Form(...),
