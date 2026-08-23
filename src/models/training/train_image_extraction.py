@@ -64,8 +64,8 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
                         color, cat, attr = model(input)
 
                         # Gets the largest score then calculates loss
-                        #_, color_pred = torch.max(color, 1)
-                        #color_loss = criterion(color_pred, label[:, 0])
+                        _, color_pred = torch.max(color, 1)
+                        color_loss = criterion(color_pred, label[:, 0])
 
                         _, cat_pred = torch.max(cat, 1)
                         cat_loss = criterion(cat_pred, label[:, 1])
@@ -74,7 +74,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
                         attr_loss = criterion(attr_pred, label[:, 2])
 
                         # Overall loss from both predictions
-                        loss = cat_loss #+ color_loss + attr_loss
+                        loss = cat_loss + color_loss + attr_loss
 
                         # Optimizes and backward propagates if it is training
                         if phase == 'train':
@@ -84,7 +84,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
                     
                     # Calculates the loss and correct labels
                     run_loss += loss.item() * input.size(0)
-                    #correct += torch.sum(color_pred == (label[:, 0]))
+                    correct += torch.sum(color_pred == (label[:, 0]))
                     correct += torch.sum(cat_pred == (label[:, 1]))
                     correct += torch.sum(attr_pred == (label[:, 2]))
             

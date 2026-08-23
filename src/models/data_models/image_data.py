@@ -16,11 +16,15 @@ import torch
 import torchvision.transforms.v2 as transforms
 from torchvision.transforms import v2
 import csv
+from sklearn.preprocessing import OneHotEncoder
+#import torch.nn.functional as F
 
 load_dotenv()
 
 cropped = os.environ.get('CROPPED_IMAGES')
 names = os.environ.get('CROPPED_CSV')
+
+code = OneHotEncoder(sparse_output=False)
 
 # Used the normalize the inputs
 mean = np.array([0.485, 0.456, 0.406])
@@ -42,6 +46,11 @@ def sort():
     df = df.sort_values(by=df.columns[0])
     return df
 
+def get_label_classes(encoder):
+    # The labels are encoded so this makes a mapping of the decoded -> encoded
+    mappings = dict(zip(encoder.classes_, range(len(encoder.classes_))))
+    return mappings
+
 class ImageData(Dataset):
     def __init__(self, dir=cropped, transform=fashion_transform(), df = sort()):
         self.dir = Path(dir)
@@ -50,7 +59,9 @@ class ImageData(Dataset):
             path for path in self.dir.iterdir()
         ]) # Loop through all images
         self.image_labels = [
-            (row.iloc[1], row.iloc[2]) for _, row in df.iterrows()
+            (code.fit_transform(torch.tensor(row.iloc[1]), 
+                                code.fit_transform(torch.tensor(row.iloc[2])))
+                                for _, row in df.iterrows())
         ]
 
     def __len__(self):
@@ -60,12 +71,8 @@ class ImageData(Dataset):
         label = self.image_labels[idx]
         path = self.image_paths[idx]
         image = Image.open(path).convert('RGB')
-        #print('size', image.size())
+
         if self.transform:
             image = self.transform(image)
 
         return image, label
-
-#idk = ImageData()
-
-#idk.__getitem__(0)
