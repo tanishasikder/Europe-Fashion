@@ -29,9 +29,10 @@ std = np.array([0.229, 0.224, 0.225])
 def fashion_transform():
     # Fashion images have bigger transformations
     fashion_transforms = transforms.Compose([
-            #transforms.Resize(256),
-            transforms.ToTensor(),
-            transforms.Normalize(mean, std)
+        transforms.Resize((224, 224)),
+        transforms.ToImage(),
+        transforms.ToDtype(torch.float32, scale=True),
+        transforms.Normalize(mean, std)
     ])
 
     return fashion_transforms
@@ -59,9 +60,12 @@ class ImageData(Dataset):
         label = self.image_labels[idx]
         path = self.image_paths[idx]
         image = Image.open(path).convert('RGB')
-
+        #print('size', image.size())
         if self.transform:
             image = self.transform(image)
 
         return image, label
 
+#idk = ImageData()
+
+#idk.__getitem__(0)

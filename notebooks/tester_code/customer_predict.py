@@ -23,12 +23,12 @@ GET RID OF IMAGE MODEL IN image_model_output
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-from api.services.rag import get_rag_response
+from src.api.services.rag import get_rag_response
 router = APIRouter()
 
 # Loading in the custom model
 from src.models.architecture.image_extraction import CNN
-from src.models.architecture.sales_predict import MTGBM
+from src.models.training.sales_predict import MTGBM
 
 # Makes python looks at the parent root directories to find the model
 parent = Path(__file__).parent

@@ -130,8 +130,8 @@ if __name__ == '__main__':
     fashion_loaders = {
         'train' : DataLoader(train, batch_size=32, shuffle=True, num_workers=4, pin_memory=True),
         'test' : DataLoader(test, batch_size=32, shuffle=False, num_workers=4, pin_memory=True)                       
-    }
-
+    }  
+        
     color_loaders = { # Gets custom class of loaded in color images
         'train' : DataLoader(co_train, batch_size=32, shuffle=True, num_workers=4, pin_memory=True),
         'test' : DataLoader(co_test, batch_size=32, shuffle=False, num_workers=4, pin_memory=True)
