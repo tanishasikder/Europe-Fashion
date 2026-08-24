@@ -93,8 +93,8 @@ def get_colors():
         'Pink' : 4,
         'Purple' : 5,
         'Skyblue' : 7,
-        'White' : 7,
-        'Yellow' : 8
+        'White' : 8,
+        'Yellow' : 9
     }
     return codes
 

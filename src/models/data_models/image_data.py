@@ -11,20 +11,24 @@ from torch.utils.data import DataLoader
 import csv
 import numpy as np
 from dotenv import load_dotenv
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset 
 import torch
 import torchvision.transforms.v2 as transforms
 from torchvision.transforms import v2
 import csv
 from sklearn.preprocessing import OneHotEncoder
-#import torch.nn.functional as F
+from sentence_transformers import SentenceTransformer
 
 load_dotenv()
+'''
+
+Problem is that rows are tryna be cleaned from None to '' and theres problems with cleaning it
+'''
 
 cropped = os.environ.get('CROPPED_IMAGES')
 names = os.environ.get('CROPPED_CSV')
 
-code = OneHotEncoder(sparse_output=False)
+code = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
 # Used the normalize the inputs
 mean = np.array([0.485, 0.456, 0.406])
@@ -44,7 +48,15 @@ def fashion_transform():
 def sort():
     df = pd.read_csv(names)
     df = df.sort_values(by=df.columns[0])
-    return df
+    data = clean(df)
+    return data
+
+def clean(df):
+    cleaned = [
+        [text if pd.notna(text) else '' for text in row]
+        for _, row in df.iterrows()
+    ]
+    return cleaned
 
 def get_label_classes(encoder):
     # The labels are encoded so this makes a mapping of the decoded -> encoded
@@ -59,9 +71,12 @@ class ImageData(Dataset):
             path for path in self.dir.iterdir()
         ]) # Loop through all images
         self.image_labels = [
-            (code.fit_transform(torch.tensor(row.iloc[1]), 
-                                code.fit_transform(torch.tensor(row.iloc[2])))
-                                for _, row in df.iterrows())
+            [   
+                torch.tensor(code.encode(row.iloc[1])), 
+                torch.tensor(code.encode(row.iloc[2]))
+                                    
+            ]
+            for _, row in df.iterrows()
         ]
 
     def __len__(self):
@@ -76,3 +91,5 @@ class ImageData(Dataset):
             image = self.transform(image)
 
         return image, label
+
+ImageData()
