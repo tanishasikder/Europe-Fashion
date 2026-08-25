@@ -5,7 +5,10 @@ from models import image_extraction
 from fastapi.templating import Jinja2Templates
 import os
 from input_router import router
-from main import limiter 
+from app.main import limiter 
+from fastapi import APIRouter, Request
+
+router = APIRouter()
 
 TEMPLATE_PATH=os.getenv('TEMPLATE_PATH')
 

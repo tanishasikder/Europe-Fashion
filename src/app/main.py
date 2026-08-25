@@ -13,8 +13,9 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 # Loading in the custom model
 from src.models import initialize_image_model
 from src.models import initialize_stats_model
-from routers.input_router import router 
-from src.core.limiter import get_limit
+from routers.input_router import router as input_router
+from routers.db_router import router as db_router
+from src.core.limiter import limiter
 
 def database():
     supabase: Client = create_client(
@@ -45,8 +46,10 @@ app = FastAPI(lifespan=lifespan)
     
 app.mount("/static", StaticFiles(directory="./"))
 
-app.include_router(router)
-app.state.limiter = get_limit() # Initializes the rate limiter
+app.include_router(input_router)
+app.include_router(db_router)
+
+app.state.limiter = limiter # Initializes the rate limiter
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
