@@ -9,7 +9,7 @@ to completion in its own process — CPU-heavy work here never touches
 the FastAPI event loop.
 """
 from rq import Worker
-from src.app.core.queue import image_queue, stats_queue, redis
+from src.core.queue import image_queue, stats_queue, redis
 
 if __name__ == "__main__":
     img_worker = Worker([image_queue], connection=redis)

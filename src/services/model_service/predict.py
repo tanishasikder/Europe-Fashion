@@ -6,11 +6,11 @@ from pydantic import BaseModel
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
-from rag import get_rag_response
+from src.services.model_service.rag import get_rag_response
 from src.app.dependencies import get_image_model, get_stats_model
-from src.app.services.model_service.services import get_user_params
-from src.app.schemas.input import input
-from src.app.schemas.input import ClothingRequest
+from src.services.model_service.services import get_user_params
+from src.schemas.input import input
+from src.schemas.input import ClothingRequest
 from torchvision import transforms
 import numpy as np
 

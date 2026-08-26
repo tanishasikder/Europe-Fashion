@@ -8,7 +8,7 @@ import json
 from PIL import Image
 import io
 #from validator import get_user_params
-from src.app.services.model_service.predict import image_output
+from src.services.model_service.predict import image_output
 from src.main import limiter 
 
 router = APIRouter(prefix='preds')

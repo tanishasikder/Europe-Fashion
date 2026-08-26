@@ -11,7 +11,7 @@ from supabase import create_client, Client
 from src.app.dependencies import get_image_model, get_stats_model
 from pydantic import BaseModel
 from typing import Optional, List
-from src.app.schemas.input import ClothingRequest
+from src.schemas.input import ClothingRequest
 from supabase import create_client, Client
 
 mean = np.array([0.485, 0.456, 0.406])

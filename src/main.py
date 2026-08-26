@@ -14,8 +14,8 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 # Loading in the custom model
 from src.models import initialize_image_model
 from src.models import initialize_stats_model
-from routers.input_router import router as input_router
-from routers.db_router import router as db_router
+from src.routers.input_router import router as input_router
+from src.routers.db_router import router as db_router
 from src.core.limiter import limiter
 
 def database():
@@ -23,7 +23,6 @@ def database():
         os.getenv('SUPABASE_URL'), # Initialize database
         os.getenv('SUPABASE_KEY')
     )
-
     bucket = supabase.storage.from_(os.getenv('BUCKET_NAME'))
     return bucket
 
