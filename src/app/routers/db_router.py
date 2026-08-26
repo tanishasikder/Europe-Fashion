@@ -25,7 +25,7 @@ async def read_clothes(request: Request):
 
 @router.post('/add')
 @limiter.limit('3/minute')
-async def add_clothes( 
+async def get_clothes( 
     request : Request, # Need this or limiter will not work
     clothes : image_extraction = Depends(image_extraction.as_form),
     image: UploadFile = File(None), 
