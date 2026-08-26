@@ -8,6 +8,7 @@ from supabase import create_client, Client
 import mlflow
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+import httpx
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 # Loading in the custom model
@@ -28,9 +29,11 @@ def database():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # Problematic. Look more into this
+    app.state.http_client = httpx.AsyncClient(timeout=10.0) # Way to make FastAPI faster
     app.state.image_model = initialize_image_model()
     app.state.stats_model = initialize_stats_model()
     yield
+    await app.state.http_client.aclose()
 
 def cloud_image_model(): # Gets model from DagsHub
     model_name = os.getenv('IMAGE_MODEL_NAME')
