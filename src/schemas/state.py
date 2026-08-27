@@ -51,7 +51,7 @@ def initialize_image_model(CNN): # Why do we have this when we have the model fr
     # Loading in the clothing predict model with error handling 
     image_model = CNN(color, category)
     # Loading in custom weights
-    torch_path = parent / "image_extraction_model.pth"
+    torch_path = parent / "image_state_dict.pth"
     image_model.load_state_dict(torch.load(torch_path, map_location=device))
     image_model.eval()
 

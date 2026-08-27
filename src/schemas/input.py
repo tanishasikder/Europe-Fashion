@@ -10,7 +10,8 @@ import io
 #from validator import get_user_params
 from src.services.model_service.predict import image_output
 
-# Enums are safer
+# Use the enums to make sure model predictions are type safe
+# Make enums based on looping through names and utilizing all caps
 class ColorParams(str, Enum):
     white = "white"
     red   = "red"
@@ -36,12 +37,11 @@ class SizeParams(str, Enum):
 class ClothingRequest(BaseModel):
     color: ColorParams = Field(..., description='Clothing Color')
     category: CategoryParams = Field(..., description='Clothing Category')
-    size : SizeParams = Field(..., description='CLothing Size')
-    original_price: float = Field(..., ge=0.0)
+    attribute: AttrParams = Field(..., description='CLothing Attributes')
     # Field level validator. Runs automatically
 
     # Checks if theres an empty field
-    @field_validator("color", "category", "size") # no original_price it is a float
+    @field_validator("color", "category", "attr") # no original_price it is a float
     @classmethod
     def verify_inputs(cls, params):
         if not params:
@@ -52,10 +52,9 @@ class ClothingRequest(BaseModel):
 def clean_domain(cls, v):
     return v.lower().strip().removeprefix("https://").removeprefix("www")
 
-def get_upload(
-        contents : bytes,
-        size: str = Form(...),
-        price: str = Form(...)
+def get_upload( # Might delete this. I think something already takes care of this. 
+                # Maybe delete it and copy some of the logic.
+        contents : bytes
     ):
     try:
         image = Image.open(io.BytesIO(contents)).convert("RGB")

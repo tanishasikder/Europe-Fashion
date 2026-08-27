@@ -29,18 +29,20 @@ class ImageService:
     def predict(self, image: Image.Image):
         tensor = self.transform(image)
         with torch.no_grad():
-            color, category = self.model(tensor)
+            color, category, attr = self.model(tensor)
             # Predict class from logits
             co_pred = color.argmax(dim=1).item()
             ca_pred = category.argmax(dim=1).item()
+            a_pred = attr.argmax(dim=1).item()
 
-        return co_pred, ca_pred
+        return co_pred, ca_pred, a_pred
     
-class StatsService:
-    def __init__(self, model, color_la, type_la):
+class StatsService: # Subject to change
+    def __init__(self, model, color_la, cat_la, attr_la):
         self.model = model
         self.color_labels = color_la
-        self.type_label = type_la
+        self.cat_label = cat_la
+        self.attr_la = attr_la
 
     def predict(self, labels):
         pred = self.model(labels)

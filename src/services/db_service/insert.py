@@ -20,9 +20,7 @@ def add_clothes(
     supabase.table('clothes').insert({
         'color': clothes.color,
         'category': clothes.category,
-        'size': clothes.size,
-        'price': clothes.price,
-        'image_url': image_url
+        'attributes' : clothes.attributes # Go on supabase and add this
     }).execute()
 
     return RedirectResponse("/", status_code=303)

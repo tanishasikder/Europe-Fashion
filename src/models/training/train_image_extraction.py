@@ -105,7 +105,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
 
             scheduler.step()
         print(f'Best model accuracy: {best_accuracy:.3f}')
-        return best_model.state_dict()   # return the best model's weights and params
+        torch.save(best_model.state_dict(), 'image_state_dict.pth')   # save the best model's weights and params
 
 # Required for multi-processing in Windows
 # Executes code that start everything

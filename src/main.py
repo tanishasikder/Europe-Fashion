@@ -11,12 +11,10 @@ from slowapi.errors import RateLimitExceeded
 import httpx
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-# Loading in the custom model
-from src.models import initialize_image_model
-from src.models import initialize_stats_model
-from src.routers.input_router import router as input_router
-from src.routers.db_router import router as db_router
-from src.core.limiter import limiter
+from routers.input_router import router as input_router
+from routers.db_router import router as db_router
+from core.limiter import limiter
+from core.lifespan import lifespan
 
 def database():
     supabase: Client = create_client(
@@ -26,35 +24,20 @@ def database():
     bucket = supabase.storage.from_(os.getenv('BUCKET_NAME'))
     return bucket
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):  # Problematic. Look more into this
-    app.state.http_client = httpx.AsyncClient(timeout=10.0) # Way to make FastAPI faster
-    app.state.image_model = initialize_image_model()
-    app.state.stats_model = initialize_stats_model()
-    yield
-    await app.state.http_client.aclose()
-
-def cloud_image_model(): # Gets model from DagsHub
-    model_name = os.getenv('IMAGE_MODEL_NAME')
-    client = mlflow.MlflowClient()
-    version = client.get_latest_versions(name=model_name)[0].version
-    model_uri = f'models:/{model_name}/{version}'
-
-    image_model = mlflow.keras.load_model(model_uri)
-
-    return image_model
-
 app = FastAPI(lifespan=lifespan)
     
 app.mount("/static", StaticFiles(directory="./"))
 
-app.include_router(input_router)
-app.include_router(db_router)
+app.include_router(input_router) # For accepting user inputs
+app.include_router(db_router) # For storing in the database
 
 app.state.limiter = limiter # Initializes the rate limiter
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-templates = Jinja2Templates(directory="./templates") # Use this for db_router stuff
+lifespan(app) # For loading the models into the app state
+
+
+
 
     

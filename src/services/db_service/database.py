@@ -42,9 +42,7 @@ def store_image(matrix: List[ClothingRequest],
     supabase.table('clothes').insert({
         'color': matrix.color,
         'category': matrix.category,
-        'size': matrix.size,
-        'price': matrix.price,
-        'image_url': image_url
+        'attributes': matrix.attributes # Go on Supabase and change the tables
     }).execute()
 
     return RedirectResponse("/", status_code=303)

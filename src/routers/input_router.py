@@ -22,19 +22,17 @@ def root():
 @limiter.limit('3/minute') # How much we limit
 async def upload(
         request : Request, # Need this or limiter will not work
-        file: UploadFile = File(...),
-        size: str = Form(...),
-        price: str = Form(...)
+        file: UploadFile = File(...)
     ):
     try:
         contents = await file.read()
-        return contents, size, price
+        return contents
 
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors())
 
 # Use with services/model_service/predict function query_rag_system
-@router.get("/query/")
+@router.get("/query")
 @limiter.limit('3/minute')
 async def get_query_rag(request : Request, query: str):
     try:
