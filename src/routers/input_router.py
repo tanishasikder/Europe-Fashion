@@ -10,7 +10,7 @@ import io
 #from validator import get_user_params
 from src.services.model_service.predict import image_output
 from src.main import limiter 
-
+from src.schemas.tasks import process_image
 router = APIRouter(prefix='preds')
 
 # Basic health check to ensure server is functioning
@@ -41,10 +41,15 @@ async def get_query_rag(request : Request, query: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Gets the model predictions for color and clothing type
-@router.post('/image_predict')
+@router.post('/image_predict') # Somehow combine with the celery function below figure it out
 async def get_image_model(request: Request):
     try:
         image_model = request.app.state.image_model
         return image_model
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post('/process/{image_id}') # CELERY FUNCTION NOT DONE
+def image_modeling(image_id: str):
+    task = process_image(image_id)
+    return {"task_id": task.id}
