@@ -39,3 +39,12 @@ async def get_query_rag(request : Request, query: str):
         return query
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Gets the model predictions for color and clothing type
+@router.post('/image_predict')
+async def get_image_model(request: Request):
+    try:
+        image_model = request.app.state.image_model
+        return image_model
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

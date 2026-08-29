@@ -7,12 +7,13 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from src.services.model_service.rag import get_rag_response
-from src.app.dependencies import get_image_model, get_stats_model
 from src.services.model_service.services import get_user_params
 from src.schemas.input import input
 from src.schemas.input import ClothingRequest
 from torchvision import transforms
 import numpy as np
+from fastapi import APIRouter, Request
+from src.routers.input_router import get_image_model
 
 mean = np.array([0.485, 0.456, 0.406])
 std = np.array([0.229, 0.224, 0.225])
@@ -45,26 +46,30 @@ async def initialize_preds(numerical_outputs):
     return response
 
 # Gets the model predictions for color and clothing type
-async def image_output(contents: Image.Image):
+async def image_output(contents: Image.Image, request: Request):
     try:
         opened = Image.open(contents)
         transformed = data_transforms(opened)
+        # Get the image model put into app
+        image_model = get_image_model()
         # Perform inference
         with torch.no_grad():
-            color, cloth_type = get_image_model(transformed)
+            color, cloth_type = image_model(transformed)
         
         return color, cloth_type
     except Exception as e:
         raise HTTPException(status_code=500, detail="Sorry. Prediction Failed")
-    
+
+router.post('/stats_predict') # THIS HAS TO CHANGE
 async def get_user_params(
     # Select is the task the user wants
-    # matrix has color, category, size, and price
     matrix: List[ClothingRequest],
     select : int,
+    request: Request
 ):
     try:
-        numerical_outputs = get_stats_model(matrix)
+        stats_model = request.app.state.stats_model
+        numerical_outputs = stats_model(matrix)
         return numerical_outputs
     except Exception as e:
         raise HTTPException(status_code=500, detail="Sorry. Prediction Failed")
