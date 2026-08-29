@@ -52,11 +52,12 @@ def sort():
     return data
 
 def clean(df):
-    cleaned = [
-        [text if pd.notna(text) else '' for text in row]
-        for _, row in df.iterrows()
-    ]
-    return cleaned
+    '''
+    Replace all attributes with '' if none else leave it alone
+    '''
+    df.iloc[:, 2] = df.iloc[:, 2].fillna('')
+
+    return df.values.tolist()
 
 def get_label_classes(encoder):
     # The labels are encoded so this makes a mapping of the decoded -> encoded
@@ -76,7 +77,7 @@ class ImageData(Dataset):
                 torch.tensor(code.encode(row.iloc[2]))
                                     
             ]
-            for _, row in df.iterrows()
+            for row in df.iterrows()
         ]
 
     def __len__(self):
