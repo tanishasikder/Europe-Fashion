@@ -46,7 +46,7 @@ def fashion_transform():
     return fashion_transforms
 
 def sort():
-    df = pd.read_csv(names)
+    df = pd.read_csv(names, header=None)
     df = df.sort_values(by=df.columns[0])
     data = clean(df)
     return data
@@ -56,8 +56,7 @@ def clean(df):
     Replace all attributes with '' if none else leave it alone
     '''
     df.iloc[:, 2] = df.iloc[:, 2].fillna('')
-
-    return df.values.tolist()
+    return df
 
 def get_label_classes(encoder):
     # The labels are encoded so this makes a mapping of the decoded -> encoded
@@ -73,11 +72,11 @@ class ImageData(Dataset):
         ]) # Loop through all images
         self.image_labels = [
             [   
-                torch.tensor(code.encode(row.iloc[1])), 
-                torch.tensor(code.encode(row.iloc[2]))
+                torch.tensor(code.encode(row[2])), 
+                torch.tensor(code.encode(row[3]))
                                     
             ]
-            for row in df.iterrows()
+            for row in df.itertuples()
         ]
 
     def __len__(self):
@@ -93,4 +92,4 @@ class ImageData(Dataset):
 
         return image, label
 
-ImageData()
+hi = ImageData()

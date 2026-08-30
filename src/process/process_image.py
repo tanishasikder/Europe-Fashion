@@ -11,7 +11,7 @@ import csv
 import numpy as np
 from dotenv import load_dotenv
 from torch.utils.data import Dataset
-import torch
+import datetime
 import torchvision.transforms.v2 as transforms
 
 load_dotenv()
@@ -19,6 +19,7 @@ load_dotenv()
 categories = os.environ.get('TYPE_LABEL')
 cloth_labels = os.environ.get('FASHION_LABELS')
 cloth_images = os.environ.get('IMAGE_FASHION_DIR')
+crop_images = os.environ.get('CROPPED_IMAGES')
 
 def get_type_labels():
     objects = []
@@ -43,7 +44,7 @@ def image_labels():
 def extract_labels(labels, file):
     return labels.get(file) # These functions process the gotten index
 
-def get_data(values, dirs, i):
+def get_data(values, dirs):
     with open('image_crop.csv', 'a', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         for val in values:
@@ -53,8 +54,10 @@ def get_data(values, dirs, i):
                 if crop == 'continue':
                     continue # Skip if things are wrong.
 
-                file_name = f'{i}{dirs}'
-                path = f'{cropped}\\{file_name}' # Save with a different index everytime
+                # Need to make the filenames unique so use minute, second, milisecond, microseconds
+                time = datetime.now().strftime("%M_%S_%f")
+                file_name = f'{time}_{dirs}'
+                path = f'{crop_images}\\{file_name}' # Save with a different file everytime
 
                 crop.save(path)
 
@@ -92,9 +95,9 @@ def pass_images():
         for i in range(len(dirs)): # Gets all file names to map to clothing_labels
             values = extract_labels(labels, dirs[i]) 
             if values:  # Most are lists values[-1][-1] but some are floats. find out which ones
-                get_data(values, dirs[i], i)
+                get_data(values, dirs[i])
 
-
+pass_images()
 
 '''
 Open with PIL.Image.open("image.jpg"), crop with img.crop((xmin, ymin, xmax, ymax)), 
