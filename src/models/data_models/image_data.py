@@ -63,21 +63,24 @@ def get_label_classes(encoder):
     mappings = dict(zip(encoder.classes_, range(len(encoder.classes_))))
     return mappings
 
+def image_label():
+    data = sort()
+    cat = data.iloc[:, 1].tolist() # Get all the categories and attributes
+    att = data.iloc[:, 2].tolist()
+    # Then encode and return as a list
+    en_cat = code.encode(cat, batch_size=256, convert_to_tensor=True)
+    en_att = code.encode(att, batch_size=256, convert_to_tensor=True)
+
+    return list(zip(en_cat, en_att))
+
 class ImageData(Dataset):
-    def __init__(self, dir=cropped, transform=fashion_transform(), df = sort()):
+    def __init__(self, dir=cropped, transform=fashion_transform(), labels=image_label()):
         self.dir = Path(dir)
         self.transform = transform
         self.image_paths = sorted([
             path for path in self.dir.iterdir()
         ]) # Loop through all images
-        self.image_labels = [
-            [   
-                torch.tensor(code.encode(row[2])), 
-                torch.tensor(code.encode(row[3]))
-                                    
-            ]
-            for row in df.itertuples()
-        ]
+        self.image_labels = labels
 
     def __len__(self):
         return len(self.image_paths)

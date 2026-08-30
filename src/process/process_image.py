@@ -55,7 +55,8 @@ def get_data(values, dirs):
                     continue # Skip if things are wrong.
 
                 # Need to make the filenames unique so use minute, second, milisecond, microseconds
-                time = datetime.now().strftime("%M_%S_%f")
+                day = datetime.datetime.now()
+                time = day.strftime("%M_%S_%f")
                 file_name = f'{time}_{dirs}'
                 path = f'{crop_images}\\{file_name}' # Save with a different file everytime
 
@@ -68,7 +69,7 @@ def get_data(values, dirs):
 
 
 def crop_image(values, file):
-    with open(f'{cloth_images}/{file}', 'rb') as f:
+    with open(f'{cloth_images}\\train\\{file}', 'rb') as f:
         img = Image.open(f)
 
         if len(values) < 4:
