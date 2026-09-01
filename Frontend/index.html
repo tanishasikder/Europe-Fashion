@@ -31,24 +31,17 @@
     }
 
     .subtitle {
-      color: rgba(255, 255, 255, 0.9);
+      color: white;
       text-align: center;
-      margin-bottom: 30px;
-      font-size: 1.1rem;
+      margin-bottom: 8px;
+      font-size: 1.2rem;
     }
 
     .subtitle1 {
-      color: rgba(255, 255, 255, 0.9);
+      color: white;
       text-align: center;
-      margin-bottom: 3px;
-      font-size: 1.1rem;
-    }
-
-    .subtitle2 {
-      color: rgba(255, 255, 255, 0.9);
-      text-align: center;
-      margin-bottom: 40px;
-      font-size: 1.1rem;
+      margin-bottom: 30px;
+      font-size: 1.2rem;
     }
 
     .card {
@@ -274,10 +267,9 @@
 </head>
 <body>
   <div class="container">
-    <h1>AI Clothing Analyzer</h1>
-    <p class="subtitle">Get Consumer Predictions for Clothing Products</p>
-    <p class="subtitle1">A tool to help you understand how your</p>
-    <p class="subtitle2">clothing will do in the current market</p>
+    <h1>Find Similar Clothing</h1>
+    <p class="subtitle">A tool to help you find similar</p>
+    <p class="subtitle1">clothes sold in the Ebay market!</p>
 
     <!-- Signed-in banner -->
     <div id="sessionBar" class="session-bar">
@@ -356,8 +348,8 @@
     // Replace these with your project's values (Project Settings → API in the Supabase dashboard).
     // The anon/public key is safe to expose in frontend code — it relies on your Row Level Security
     // policies to actually restrict access, so make sure those are set up on the backend.
-    const SUPABASE_URL = "https://YOUR-PROJECT-REF.supabase.co";
-    const SUPABASE_ANON_KEY = "YOUR-SUPABASE-ANON-KEY";
+    const SUPABASE_URL = "https://wytzqccveecanenvedvb.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind5dHpxY2N2ZWVjYW5lbnZlZHZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2OTE4NTUsImV4cCI6MjA5ODI2Nzg1NX0.FhD8FOzbz5Hfz2MfLSthwtNohsctZLWZMoQQAm2C-UE";
 
     const { createClient } = supabase;
     const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -412,7 +404,7 @@
       if (session) {
         authCard.style.display = "none";
         sessionBar.classList.add("show");
-        sessionEmail.textContent = `Signed in as ${session.user.email}`;
+        sessionEmail.textContent = `Signed in as ${session.user.email} (id: ${session.user.id})`;
         uploadCard.classList.remove("locked");
         submitCard.classList.remove("locked");
       } else {

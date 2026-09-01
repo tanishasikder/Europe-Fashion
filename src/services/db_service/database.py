@@ -11,17 +11,10 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 from postgrest.exceptions import APIError
 import httpx
 import logging
+import sys 
 
-SUPABASE_URL = os.environ.get('SUPABASE_URL')
-BUCKET_NAME = os.environ.get('BUCKET_NAME')
-SUPABASE_KEY = os.environ.get('SUPABASE_KEY')
-
-supabase: Client = create_client(
-    SUPABASE_URL, 
-    SUPABASE_KEY
-)
-
-SUPABASE_BUCKET = supabase.storage.from_(BUCKET_NAME)
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+from src.schemas.db import supabase, SUPABASE_BUCKET
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('supabase-app')
