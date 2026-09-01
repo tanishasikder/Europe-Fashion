@@ -16,8 +16,7 @@ stats_queue = Queue("default", connection=redis)
 # After user uploads the file, validate it, then put it here
 # Wait for it to preprocess then put it in the model
 def queue_image(img: torch.Tensor):
-    job = image_queue.enqueue(
-        
-    )
+    job = image_queue.enqueue(img)
 
-def queue_stats():
+def queue_stats(): # Figure this out
+    job = stats_queue.enqueue()

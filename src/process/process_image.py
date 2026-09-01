@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from torch.utils.data import Dataset
 import datetime
 import torchvision.transforms.v2 as transforms
+import uuid
 
 load_dotenv()
 
@@ -54,10 +55,9 @@ def get_data(values, dirs):
                 if crop == 'continue':
                     continue # Skip if things are wrong.
 
-                # Need to make the filenames unique so use minute, second, milisecond, microseconds
-                day = datetime.datetime.now()
-                time = day.strftime("%M_%S_%f")
-                file_name = f'{time}_{dirs}'
+                # Need to make the filenames unique so use uuid and separate with _
+                id = uuid.uuid4()
+                file_name = f'{id}_{dirs}'
                 path = f'{crop_images}\\{file_name}' # Save with a different file everytime
 
                 crop.save(path)
