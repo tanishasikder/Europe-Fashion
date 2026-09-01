@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 from enum import Enum
 from fastapi import APIRouter, File, HTTPException, UploadFile
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Form, Request, status
 from pydantic import ValidationError
 import json
 from PIL import Image
@@ -22,9 +22,17 @@ def root():
 @limiter.limit('3/minute') # How much we limit
 async def upload(
         request : Request, # Need this or limiter will not work
+        payload: dict, # Get this from schemas/jwt.py it verifies the user using jwt
         file: UploadFile = File(...)
     ):
     try:
+        user_id = payload['sub']
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail='Authorization is missing',
+                headers={'WWW-Authenticate': 'Bearer'}
+            )
         contents = await file.read()
         return contents
 

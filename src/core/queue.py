@@ -2,7 +2,7 @@ import os
 from redis import Redis
 from rq import Queue
 from dotenv import load_dotenv
-from rq.retry import Retry
+from rq import Retry
 import torch
 
 load_dotenv()
