@@ -4,13 +4,13 @@ from enum import Enum
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi import FastAPI, Form, Request, status
 from pydantic import ValidationError
-import json
+import torch
 from PIL import Image
 import io
 #from validator import get_user_params
 from src.services.model_service.predict import image_output
 from src.main import limiter 
-from src.schemas.tasks import process_image
+from src.schemas.tasks import process_img
 router = APIRouter(prefix='preds')
 
 # Basic health check to ensure server is functioning
@@ -34,7 +34,8 @@ async def upload(
                 headers={'WWW-Authenticate': 'Bearer'}
             )
         contents = await file.read()
-        return contents
+        tensor = torch.frombuffer(contents, dtype=torch.int16)
+        process_img(request, tensor) # Process this image
 
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors())
@@ -50,14 +51,11 @@ async def get_query_rag(request : Request, query: str):
 
 # Gets the model predictions for color and clothing type
 @router.post('/image_predict') # Somehow combine with the celery function below figure it out
-async def get_image_model(request: Request):
+async def get_image_preds(request: Request):
     try:
         image_model = request.app.state.image_model
         return image_model
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post('/process/{image_id}') # CELERY FUNCTION NOT DONE
-def image_modeling(image_id: str):
-    task = process_image(image_id)
-    return {"task_id": task.id}
+
