@@ -10,7 +10,7 @@ import io
 #from validator import get_user_params
 from src.services.model_service.predict import image_output
 from src.main import limiter 
-from src.schemas.tasks import process_img
+from src.core.celery_app import process_img
 router = APIRouter(prefix='preds')
 
 # Basic health check to ensure server is functioning
@@ -35,7 +35,7 @@ async def upload(
             )
         contents = await file.read()
         tensor = torch.frombuffer(contents, dtype=torch.int16)
-        process_img(request, tensor) # Process this image
+        process_img.delay(request, tensor) # Process this image
 
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors())
