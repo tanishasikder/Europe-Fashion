@@ -1,19 +1,13 @@
 from celery import Celery
-import os
-from dotenv import load_dotenv
 from kombu import Queue
 from fastapi import HTTPException, Request
 import torch
+from .config import Settings
 
-load_dotenv()
+celery_app = Celery('fashionproject')
 
-redis = os.getenv('REDIS_URL')
-
-celery_app = Celery(
-    'fashionproject',
-    broker = f'{redis}/0',
-    backend=f'{redis}/1'
-)
+# No need to load from env when you do this
+celery_app.config_from_object(Settings)
 
 celery_app.task_routes = {
     'tasks.predict_img' : {'queue' : 'queue_image'}

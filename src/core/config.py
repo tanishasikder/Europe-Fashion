@@ -1,13 +1,16 @@
 import os
+
 class Settings:
-    REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
-    CELERY_BROKER_URL = REDIS_URL
-    CELERY_RESULT_BACKEND = REDIS_URL
-    CELERY_TASK_SERIALIZER = "json"
-    CELERY_ACCEPT_CONTENT = ["json"]
-    CELERY_RESULT_SERIALIZER = "json"
-    CELERY_TIMEZONE = "Asia/Kolkata"
-    CELERY_TASK_TRACK_STARTED = True
-    CELERY_TASK_TIME_LIMIT = 300
-    CELERY_TASK_SOFT_TIME_LIMIT = 250
+    redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+    broker_url = redis_url
+    result_backend = redis_url
+    task_serializer = "json"
+    accept_content = ["json"]
+    result_serializer = "json"
+    timezone = "America/New_York"
+    task_track_started = True
+    task_time_limit = 300
+    task_soft_time_limit = 250
+    broker_connection_retry_on_startup = True  
+
 settings = Settings()

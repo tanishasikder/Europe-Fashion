@@ -497,6 +497,32 @@
       submissionStatus.classList.remove("show", "error", "success");
     });
 
+    // Polls GET /status/{task_id} until the Celery task finishes.
+    // onProgress is called after every poll so the UI can show it's still working.
+    async function pollForResult(taskId, onProgress) {
+      while (true) {
+        const res = await fetch(`http://localhost:8000/status/${taskId}`);
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`HTTP ${res.status}: ${errText}`);
+        }
+
+        const data = await res.json();
+
+        if (onProgress) onProgress(data.status);
+
+        if (data.status === "SUCCESS") {
+          return data.result;
+        }
+        if (data.status === "FAILURE") {
+          throw new Error(data.error || "Prediction failed");
+        }
+
+        // still PENDING/STARTED — wait, then poll again
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
+
     // Handle form submission — sends file, size, and price to /predict
     uploadForm.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -550,10 +576,16 @@
           throw new Error(`HTTP ${res.status}: ${errText}`);
         }
 
-        const result = await res.json();
+        // /upload now returns a task_id immediately — the actual prediction
+        // is still running in a Celery worker. Poll /status/{task_id} until done.
+        const { task_id } = await res.json();
+
+        const result = await pollForResult(task_id, (status) => {
+          submissionStatus.innerHTML = `Processing your image... <em>(${status})</em>`;
+        });
 
         submissionStatus.innerHTML = `
-          <strong>Received by backend</strong><br><br>
+          <strong>Prediction complete</strong><br><br>
           <pre>${JSON.stringify(result, null, 2)}</pre>
         `;
         submissionStatus.classList.add("success");
