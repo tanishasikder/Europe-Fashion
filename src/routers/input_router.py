@@ -34,9 +34,8 @@ async def upload(
                 headers={'WWW-Authenticate': 'Bearer'}
             )
         contents = await file.read()
-        tensor = torch.frombuffer(contents, dtype=torch.int16)
-        preds = process_img.delay(request, tensor) # Process this image
-        return preds # Returns the prediction of what the image is
+        process_img.delay(contents) # Process this image
+        # Returns the prediction of what the image is
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors())
 

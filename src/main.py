@@ -14,7 +14,6 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from routers.input_router import router as input_router
 from routers.db_router import router as db_router
 from core.limiter import limiter
-from core.lifespan import lifespan
 
 def database():
     supabase: Client = create_client(
@@ -24,7 +23,7 @@ def database():
     bucket = supabase.storage.from_(os.getenv('BUCKET_NAME'))
     return bucket
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
     
 app.mount("/static", StaticFiles(directory="./"))
 
@@ -35,7 +34,6 @@ app.state.limiter = limiter # Initializes the rate limiter
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-lifespan(app) # For loading the models into the app state
 
 
 

@@ -34,7 +34,7 @@ def get_user_params(
     return result.tolist()
 
 # Loops through the file names and stores all colors and categories
-def get_color_category():
+def get_color_category(): # GET COLOR, CAT, AND ATTR CHANGE THIS
     path = 'Fashion_Images/train'
     files = os.listdir(path)
     color = [file[:file.index('_')] for file in files]
@@ -42,12 +42,12 @@ def get_color_category():
 
     return color, category
 
-def image_preds(color, category):
+def image_preds(color, cat, attr):
     '''
     Get the english words for the color and category.
     This is used after prediction
     '''
-     # We need this to find the true english labels
+    # We need this to find the true english labels
     color_labels, category_labels = get_color_category()
 
     color_pred = torch.argmax(color, dim=1)

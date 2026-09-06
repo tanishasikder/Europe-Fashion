@@ -13,7 +13,9 @@ from src.schemas.input import ClothingRequest
 from torchvision import transforms
 import numpy as np
 from fastapi import APIRouter, Request
-from src.routers.input_router import get_image_model
+from src.schemas.initialize import ImageService, StatsService
+from src.schemas.state import initialize_stats_model, initialize_image_model
+import io
 
 mean = np.array([0.485, 0.456, 0.406])
 std = np.array([0.229, 0.224, 0.225])
@@ -46,17 +48,17 @@ async def initialize_preds(numerical_outputs):
     return response
 
 # Gets the model predictions for color and clothing type
-async def image_output(contents: Image.Image, request: Request):
+async def image_output(contents: bytes):
     try:
-        opened = Image.open(contents)
+        opened = Image.open(io.BytesIO(contents))
         transformed = data_transforms(opened)
         # Get the image model put into app
-        image_model = get_image_model()
+        image_model = initialize_image_model(ImageService)
         # Perform inference
         with torch.no_grad():
-            color, cloth_type = image_model(transformed)
+            color, cat, attr = image_model(transformed)
         
-        return color, cloth_type
+        return color, cat, attr
     except Exception as e:
         raise HTTPException(status_code=500, detail="Sorry. Prediction Failed")
 
