@@ -7,7 +7,7 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from src.services.model_service.rag import get_rag_response
-from src.services.model_service.services import get_user_params
+from src.services.model_service.verify import get_user_params
 from src.schemas.input import input
 from src.schemas.input import ClothingRequest
 from torchvision import transforms

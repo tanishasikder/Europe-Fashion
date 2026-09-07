@@ -4,72 +4,68 @@ from enum import Enum
 from fastapi import File, HTTPException, UploadFile
 from fastapi import FastAPI, Form
 from pydantic import ValidationError
-import json
+from enum import Enum
 from PIL import Image
 import io
 #from validator import get_user_params
 from src.services.model_service.predict import image_output
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+colors = os.getenv('COLOR_DIR')
+labels = os.getenv('TYPE_LABEL')
 
 # Use the enums to make sure model predictions are type safe
 # Make enums based on looping through names and utilizing all caps
-class ColorParams(str, Enum):
-    white = "white"
-    red   = "red"
-    green = "green"
-    blue  = "blue"
-    black = "black"
 
-class CategoryParams(str, Enum):
-    tshirt    = "tshirt"
-    sleepwear = "sleepwear"
-    pants     = "pants"
-    dress     = "dress"
-    shoes     = "shoes"
+def read_file(path):
+    contents = []
 
-class SizeParams(str, Enum):
-    xs = "xs"
-    s  = "s"
-    m  = "m"
-    l  = "l"
-    xl  = "xl"
+    with open(path, 'r') as f:
+        for entry in f:
+            contents.append(entry)
 
-# This is what the caller must send in the request body
-class ClothingRequest(BaseModel):
-    color: ColorParams = Field(..., description='Clothing Color')
-    category: CategoryParams = Field(..., description='Clothing Category')
-    attribute: AttrParams = Field(..., description='CLothing Attributes')
-    # Field level validator. Runs automatically
+    return contents
 
-    # Checks if theres an empty field
-    @field_validator("color", "category", "attr") # no original_price it is a float
-    @classmethod
-    def verify_inputs(cls, params):
-        if not params:
-           raise ValueError('Field cannot be empty')
-        
-        return params
-   
-def clean_domain(cls, v):
-    return v.lower().strip().removeprefix("https://").removeprefix("www")
+def get_file_names():
+    '''
+    Loops through files and get names to create enums with
+    '''
+    color_names = []
+    for root, dirs, files in os.walk(colors):
+        for file in dirs:
+            color_names.append(file)
+            
+    for root, dirs, files in os.walk(labels):
+        for file in files:
+            if dirs == 'fine_details.txt':
+                path = os.path.join(root, file)
+                attributes = read_file(path)
+            elif dirs == 'objects.txt':
+                path = os.path.join(root, file)
+                categories = read_file(path)
 
-def get_upload( # Might delete this. I think something already takes care of this. 
-                # Maybe delete it and copy some of the logic.
-        contents : bytes
-    ):
-    try:
-        image = Image.open(io.BytesIO(contents)).convert("RGB")
-        color, category = image_output(image)
+    return color_names, attributes, categories
 
-        inputs = ClothingRequest(
-            color = color,
-            category = category,
-            size = size,
-            original_price = price
-        )
+color_names, attributes, categories = get_file_names()
 
-        return inputs
+ColorParams = Enum(
+    'colorparams',
+    {color.upper() : color for color in color_names},
+    type=str
+)
 
-    except ValidationError as e:
-        raise HTTPException(status_code=422, detail=e.errors())
+CategoryParams = Enum(
+    'categoryparams',
+    {cat.upper() : cat for cat in categories},
+    type=str
+)
 
+AttributeParams = Enum(
+    'attributeparams',
+    {attr.upper() : attr for attr in attributes},
+    type=str
+)
 

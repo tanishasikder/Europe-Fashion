@@ -1,16 +1,11 @@
-from pydantic import BaseModel, Field, field_validator
-from typing import Optional
-from enum import Enum
 from fastapi import APIRouter, File, HTTPException, UploadFile
-from fastapi import FastAPI, Form, Request, status
+from fastapi import Request, status
 from pydantic import ValidationError
-import torch
-from PIL import Image
-import io
-#from validator import get_user_params
-from src.services.model_service.predict import image_output
+from fastapi import Depends
 from src.main import limiter 
 from src.core.celery_app import process_img
+from src.schemas.jwt import verify_jwt
+
 router = APIRouter(prefix='preds')
 
 # Basic health check to ensure server is functioning
@@ -22,7 +17,7 @@ def root():
 @limiter.limit('3/minute') # How much we limit
 async def upload(
         request : Request, # Need this or limiter will not work
-        payload: dict, # Get this from schemas/jwt.py it verifies the user using jwt
+        payload: dict = Depends(verify_jwt), # Get this from schemas/jwt.py it verifies the user using jwt
         file: UploadFile = File(...)
     ):
     try:
@@ -34,8 +29,8 @@ async def upload(
                 headers={'WWW-Authenticate': 'Bearer'}
             )
         contents = await file.read()
-        process_img.delay(contents) # Process this image
-        # Returns the prediction of what the image is
+        color, cat, attr = process_img.delay(contents) # Process this image
+        return color, cat, attr # Returns the prediction of what the image is
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors())
 
