@@ -5,6 +5,13 @@ from models import image_extraction
 from fastapi.templating import Jinja2Templates
 import os
 
+'''
+REMEMBER TO FIX THE FRONTEND YOU NEED TO GET THE USERS FILE NAME THEN
+PUT IT EVERYWHERE ELSE AND THE COLOR, CAT, AND ATTR NEEDS TO BE IN A DICT
+IN ANOTHER PLACE YOU HAVE IT AS A LIST AND OTHER PLACES ITS SEPARATE
+VARIABLES SO PUT IT ALL IN A DICT OR CHANGE TO WHATEVERS BEST PRACTICE
+'''
+
 def add_clothes(
     file_content : bytes,
     file_name : str,
@@ -24,4 +31,10 @@ def add_clothes(
     }).execute()
 
     return RedirectResponse("/", status_code=303)
+
+def get_cloth_link(clothes : Dict, file_name: str):
+    image_filename = f"{clothes.color}_{clothes.category}_{file_name}"
+    image_url = f"{SUPABASE_URL}/storage/v1/object/public/{SUPABASE_BUCKET}/{image_filename}"
+
+    return image_url
 
