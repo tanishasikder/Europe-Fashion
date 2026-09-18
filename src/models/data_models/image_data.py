@@ -44,18 +44,16 @@ def fashion_transform():
 
     return fashion_transforms
 
-def sort():
-    df = pd.read_csv(names, header=None)
-    df = df.sort_values(by=df.columns[0])
-    data = clean(df)
-    return data
-
 def clean(df):
     '''
     Replace all attributes with '' if none else leave it alone
     '''
     df.iloc[:, 2] = df.iloc[:, 2].fillna('')
     return df
+
+df = pd.read_csv(names, header=None)
+df = df.sort_values(by=df.columns[0])
+data = clean(df)
 
 def get_label_classes(encoder):
     # The labels are encoded so this makes a mapping of the decoded -> encoded
@@ -64,7 +62,6 @@ def get_label_classes(encoder):
 
 def image_label(out_path=l_path):
     # Processes the labels once then use everytime
-    data = sort()
     cat = data.iloc[:, 1].tolist() # Get all the categories and attributes
     att = data.iloc[:, 2].tolist()
     # Then encode and return as a list
@@ -81,15 +78,15 @@ class ImageData(Dataset):
             path for path in self.dir.iterdir()
         ]) # Loop through all images
         labels = torch.load(em_path) # Load in premade labels
-        self.image_labels = list(zip(labels['cat'], labels['attr']))
+        self.image_labels = dict(zip(data.iloc[:, 0], list(zip(labels['cat'], labels['attr']))))
 
     def __len__(self):
         return len(self.image_paths)
 
     def __getitem__(self, idx):
-        print(idx)
-        label = self.image_labels[idx]
         path = self.image_paths[idx]
+        
+        label = self.image_labels[path.name] # Explicit lookup
         image = Image.open(path).convert('RGB')
 
         if self.transform:
@@ -101,3 +98,11 @@ if __name__ == "__main__":
     # Heavy so load not at module import time. Needed only for labels not dataset
     code = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
     image_label()
+    '''
+    hi = set(data.iloc[:, 0])
+    image_paths = set([p for p in Path(cropped).iterdir() if p.name in hi])
+    print('overall', len(hi), len(image_paths))
+    print(len(hi & image_paths))
+    print(len(hi - image_paths))
+    print(len(image_paths - hi))
+    '''
