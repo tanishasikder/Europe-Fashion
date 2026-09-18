@@ -27,7 +27,7 @@ Problem is that rows are tryna be cleaned from None to '' and theres problems wi
 
 cropped = os.environ.get('CROPPED_IMAGES')
 names = os.environ.get('CROPPED_CSV')
-
+l_path = os.environ.get('CLOTHING_EMBED')
 code = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
 # Used the normalize the inputs
@@ -63,7 +63,8 @@ def get_label_classes(encoder):
     mappings = dict(zip(encoder.classes_, range(len(encoder.classes_))))
     return mappings
 
-def image_label():
+def image_label(out_path=l_path):
+    # Processes the labels once then use everytime
     data = sort()
     cat = data.iloc[:, 1].tolist() # Get all the categories and attributes
     att = data.iloc[:, 2].tolist()
@@ -71,16 +72,17 @@ def image_label():
     en_cat = code.encode(cat, batch_size=256, convert_to_tensor=True)
     en_att = code.encode(att, batch_size=256, convert_to_tensor=True)
 
-    return list(zip(en_cat, en_att))
+    torch.save({'cat': en_cat, 'att': en_att}, out_path)
 
 class ImageData(Dataset):
-    def __init__(self, dir=cropped, transform=fashion_transform(), labels=image_label()):
+    def __init__(self, dir=cropped, transform=fashion_transform(), em_path=l_path):
         self.dir = Path(dir)
         self.transform = transform
         self.image_paths = sorted([
             path for path in self.dir.iterdir()
         ]) # Loop through all images
-        self.image_labels = labels
+        labels = torch.load(em_path) # Load in premade labels
+        self.image_labels = list(zip(labels['cat'], labels['attr']))
 
     def __len__(self):
         return len(self.image_paths)
@@ -95,4 +97,5 @@ class ImageData(Dataset):
 
         return image, label
 
-hi = ImageData()
+if __name__ == "__main__":
+    image_label()

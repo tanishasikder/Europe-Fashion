@@ -48,10 +48,8 @@ class CNN(nn.Module):
         # Flatten the features so it can be used in linear layers
         # Goes from [batch, 512, 1, 1] to [batch, 512]
         x = torch.flatten(x, 1)
-        x = self.dropout1(x)
-        color = self.fc_color(x)
-        x = self.dropout2(x)
-        category = self.fc_category(x)
-        attr = self.fc_attr(x)
+        color = self.fc_color(self.dropout1(x))
+        category = self.fc_category(self.dropout2(x))
+        attr = self.fc_attr(self.dropout3(x))
         # Return the classification
         return color, category, attr
