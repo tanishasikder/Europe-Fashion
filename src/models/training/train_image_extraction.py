@@ -40,6 +40,7 @@ sets = ['train', 'test']
 def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
     with mlflow.start_run():
         best_model = model.state_dict()
+        best_accuracy = 0.0
 
         for epoch in range(num_epochs):
             print(f'Epoch {epoch}/{num_epochs - 1}')

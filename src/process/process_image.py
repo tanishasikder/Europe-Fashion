@@ -98,8 +98,6 @@ def pass_images():
             if values:  # Most are lists values[-1][-1] but some are floats. find out which ones
                 get_data(values, dirs[i])
 
-pass_images()
-
 '''
 Open with PIL.Image.open("image.jpg"), crop with img.crop((xmin, ymin, xmax, ymax)), 
 then transform to a tensor using torchvision.transforms.v2.functional.to_image.

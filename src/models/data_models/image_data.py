@@ -28,7 +28,6 @@ Problem is that rows are tryna be cleaned from None to '' and theres problems wi
 cropped = os.environ.get('CROPPED_IMAGES')
 names = os.environ.get('CROPPED_CSV')
 l_path = os.environ.get('CLOTHING_EMBED')
-code = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
 # Used the normalize the inputs
 mean = np.array([0.485, 0.456, 0.406])
@@ -72,7 +71,7 @@ def image_label(out_path=l_path):
     en_cat = code.encode(cat, batch_size=256, convert_to_tensor=True)
     en_att = code.encode(att, batch_size=256, convert_to_tensor=True)
 
-    torch.save({'cat': en_cat, 'att': en_att}, out_path)
+    torch.save({'cat': en_cat, 'attr': en_att}, out_path)
 
 class ImageData(Dataset):
     def __init__(self, dir=cropped, transform=fashion_transform(), em_path=l_path):
@@ -88,6 +87,7 @@ class ImageData(Dataset):
         return len(self.image_paths)
 
     def __getitem__(self, idx):
+        print(idx)
         label = self.image_labels[idx]
         path = self.image_paths[idx]
         image = Image.open(path).convert('RGB')
@@ -98,4 +98,6 @@ class ImageData(Dataset):
         return image, label
 
 if __name__ == "__main__":
+    # Heavy so load not at module import time. Needed only for labels not dataset
+    code = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
     image_label()

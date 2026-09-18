@@ -38,6 +38,7 @@ class CNN(nn.Module):
         # Head to classify the clothing category
         self.fc_category = nn.Linear(num_features, len(cat_names))
         self.dropout2 = nn.Dropout(0.5)
+        self.dropout3 = nn.Dropout(0.5)
         self.fc_attr = nn.Linear(num_features, len(attr_names))
         self.to(device)
     
