@@ -79,6 +79,13 @@ class ImageData(Dataset):
         ]) # Loop through all images
         labels = torch.load(em_path) # Load in premade labels
         self.image_labels = dict(zip(data.iloc[:, 0], list(zip(labels['cat'], labels['attr']))))
+        nu = [k.partition('_')[2] for k in self.image_labels.keys()]
+        idk = [p.partition('_')[2] for p in self.image_paths]
+        lmao = 'e64c38c709dd92daa8092252800bafc6.jpg'
+        for i in self.image_paths:
+            poo = i.partition('final_img\\')[2]
+            if poo.partition('_')[2] == lmao:
+                print(poo)
 
     def __len__(self):
         return len(self.image_paths)
@@ -96,8 +103,12 @@ class ImageData(Dataset):
 
 if __name__ == "__main__":
     # Heavy so load not at module import time. Needed only for labels not dataset
-    code = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-    image_label()
+    #code = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+    #image_label()
+    hi = ImageData()
+    #image_name_set = set(p.name for p in Path(cropped).iterdir() if p.name in hi)
+
+
     '''
     hi = set(data.iloc[:, 0])
     image_paths = set([p for p in Path(cropped).iterdir() if p.name in hi])

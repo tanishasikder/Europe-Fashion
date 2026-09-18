@@ -69,7 +69,7 @@ def get_data(values, dirs):
 
 
 def crop_image(values, file):
-    with open(f'{cloth_images}\\train\\{file}', 'rb') as f:
+    with open(f'{cloth_images}\\{file}', 'rb') as f:
         img = Image.open(f)
 
         if len(values) < 4:
@@ -91,12 +91,15 @@ def crop_image(values, file):
         
 def pass_images():
     labels = image_labels() # Mapping of file -> categories, attributes
-
+    required = set(f.split('_', 1)[1] for f in os.listdir(crop_images))
     for file, mid, dirs in os.walk(cloth_images):
         for i in range(len(dirs)): # Gets all file names to map to clothing_labels
-            values = extract_labels(labels, dirs[i]) 
-            if values:  # Most are lists values[-1][-1] but some are floats. find out which ones
-                get_data(values, dirs[i])
+            for i in dirs:
+                if i in required:
+                    continue # Prevents duplicate files when re-runs happen
+                values = extract_labels(labels, i) 
+                if values:  # Most are lists values[-1][-1] but some are floats. find out which ones
+                    get_data(values, i)
 
 '''
 Open with PIL.Image.open("image.jpg"), crop with img.crop((xmin, ymin, xmax, ymax)), 
