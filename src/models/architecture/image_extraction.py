@@ -10,10 +10,6 @@ import os
 # Push to GPU if it is available, CPU if not
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-load_dotenv()
-
-files = os.environ.get('CROPPED_CSV')
-
 # CNN class to classify image features
 class CNN(nn.Module):
     def __init__(self, co_names, cat_names, attr_names):
@@ -38,8 +34,8 @@ class CNN(nn.Module):
         # Head to classify the clothing category
         self.fc_category = nn.Linear(num_features, len(cat_names))
         self.dropout2 = nn.Dropout(0.5)
-        self.dropout3 = nn.Dropout(0.5)
         self.fc_attr = nn.Linear(num_features, len(attr_names))
+        self.dropout3 = nn.Dropout(0.5)
         self.to(device)
     
     def forward(self, x):

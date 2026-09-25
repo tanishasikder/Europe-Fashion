@@ -15,6 +15,10 @@ import sys
 from dotenv import load_dotenv
 from torch.utils.data import DataLoader, random_split, TensorDataset
 
+'''
+Seems like all of the file names are in the data but for some reason it is not
+finding the file names. Debug to see where it is failing to find the file names
+'''
 current_dir = Path(__file__).resolve().parent
 root_dir = current_dir.parents[2]
 
@@ -41,7 +45,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
     with mlflow.start_run():
         best_model = model.state_dict()
         best_accuracy = 0.0
-
+        print('we training now')
         for epoch in range(num_epochs):
             print(f'Epoch {epoch}/{num_epochs - 1}')
             # Switch between training and validation
@@ -57,11 +61,10 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
 
                 # Loop over the labels and the images in the dataloader
                 for input, label in fashion_loaders[phase]:
-
                     with torch.set_grad_enabled(phase=='train'):
                         # Gets the outputs from resnet model
                         color, cat, attr = model(input)
-
+                        print('we modeling now')
                         # Crossentropy loss expects raw scores
                         color_loss = criterion(color, label[:, 0])
                         cat_loss = criterion(cat, label[:, 1])
@@ -115,7 +118,7 @@ if __name__ == '__main__':
 
     # Finding all the images in the folder
     dataset = ImageData()
-
+    print('got dataset')
     # Splitting the dataset into train test
     total_size = len(dataset)
     train_size = int(0.8 * total_size)
@@ -143,6 +146,7 @@ if __name__ == '__main__':
     clothing, attr = get_type_labels()
 
     model = CNN(list(codes.values()), clothing, attr)
+    print('i guess model worked lmao')
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=1e-4, weight_decay=1e-4)
 

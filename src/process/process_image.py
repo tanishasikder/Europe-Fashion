@@ -45,12 +45,12 @@ def image_labels():
 def extract_labels(labels, file):
     return labels.get(file) # These functions process the gotten index
 
-def get_data(values, dirs):
+def get_data(values, dirs, mid):
     with open('image_crop.csv', 'a', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         for val in values:
             if isinstance(val[-1], list):
-                crop = crop_image(val[-1], dirs)
+                crop = crop_image(val[-1], dirs, mid)
 
                 if crop == 'continue':
                     continue # Skip if things are wrong.
@@ -68,8 +68,8 @@ def get_data(values, dirs):
                 writer.writerow([file_name, cat, attr])
 
 
-def crop_image(values, file):
-    with open(f'{cloth_images}\\{file}', 'rb') as f:
+def crop_image(values, file, mid):
+    with open(os.path.join(mid, file), 'rb') as f:
         img = Image.open(f)
 
         if len(values) < 4:
@@ -91,16 +91,14 @@ def crop_image(values, file):
         
 def pass_images():
     labels = image_labels() # Mapping of file -> categories, attributes
-    required = set(f.split('_', 1)[1] for f in os.listdir(crop_images))
+    #required = set(f.split('_', 1)[1] for f in os.listdir(crop_images))
     for file, mid, dirs in os.walk(cloth_images):
-        for i in range(len(dirs)): # Gets all file names to map to clothing_labels
-            for i in dirs:
-                if i in required:
-                    continue # Prevents duplicate files when re-runs happen
-                values = extract_labels(labels, i) 
-                if values:  # Most are lists values[-1][-1] but some are floats. find out which ones
-                    get_data(values, i)
+        for i in dirs:
+            values = extract_labels(labels, i) 
+            if values:  # Most are lists values[-1][-1] but some are floats. find out which ones
+                get_data(values, i, file)
 
+#pass_images()
 '''
 Open with PIL.Image.open("image.jpg"), crop with img.crop((xmin, ymin, xmax, ymax)), 
 then transform to a tensor using torchvision.transforms.v2.functional.to_image.
