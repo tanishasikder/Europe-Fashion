@@ -96,39 +96,24 @@ class ImageData(Dataset):
     def __init__(self, dir=cropped, transform=fashion_transform(), em_path=l_path):
         self.dir = Path(dir)
         self.transform = transform
-        self.image_paths = []
-
-        for path in self.dir.iterdir():
-            print("The path:", path.name)
-            print("Type:", type(path))
-            self.image_paths.append(path.name)
-
-        self.image_paths = sorted(self.image_paths)
-        #self.image_paths = sorted([
-        #    path for path in self.dir.iterdir()
-        #]) # Loop through all images
         labels = torch.load(em_path) # Load in premade labels
         self.image_labels = dict(zip(data.iloc[:, 0], list(zip(labels['cat'], labels['attr']))))
+        self.image_paths = sorted([
+            path.name for path in self.dir.iterdir()
+            if path.name in data.iloc[:, 0]
+        ]) # Loop through all images
 
-        #nu = [k.partition('_')[2] for k in self.image_labels.keys()]
-        #idk = [p.partition('_')[2] for p in self.image_paths]
-        '''
-        lmao = 'a5fb8419d36b80819a01294dbc5472aa.jpg'
-        for i in self.image_paths:
-            i = str(i)
-            poo = i.partition('final_img\\')[2]
-            if poo.partition('_')[2] == lmao:
-                print(poo)
-                print('idk', poo.partition('_')[2])
-        '''
     def __len__(self):
         return len(self.image_paths)
 
     def __getitem__(self, idx):
         path = self.image_paths[idx]
-        
-        label = self.image_labels[path] # Explicit lookup
-        image = Image.open(path).convert('RGB')
+        # Look up without using UUID
+        #original_name = path.partition('_')[2]
+        #label = self.image_labels[original_name] # Explicit lookup
+        #image = Image.open(self.dir / path).convert('RGB')
+        label = self.image_labels[path]
+        image = Image.open(self.dir / path).convert('RGB')
 
         if self.transform:
             image = self.transform(image)
