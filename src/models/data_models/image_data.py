@@ -3,27 +3,16 @@ from pathlib import Path
 import os
 import json
 import pandas as pd
-import torch.nn as nn
 from PIL import Image
-import torchvision.transforms as transforms
-from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
-import csv
 import numpy as np
 from dotenv import load_dotenv
 from torch.utils.data import Dataset 
 import torch
-import torchvision.transforms.v2 as transforms
 from torchvision.transforms import v2
-import csv
-from sklearn.preprocessing import OneHotEncoder
 from sentence_transformers import SentenceTransformer
+from torchvision.transforms import v2
 
 load_dotenv()
-'''
-
-Problem is that rows are tryna be cleaned from None to '' and theres problems with cleaning it
-'''
 
 cropped = os.environ.get('CROPPED_IMAGES')
 names = os.environ.get('CROPPED_CSV')
@@ -33,15 +22,48 @@ l_path = os.environ.get('CLOTHING_EMBED')
 mean = np.array([0.485, 0.456, 0.406])
 std = np.array([0.229, 0.224, 0.225])
 
-def fashion_transform():
-    # Fashion images have bigger transformations
-    fashion_transforms = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToImage(),
-        transforms.ToDtype(torch.float32, scale=True),
-        transforms.Normalize(mean, std)
-    ])
+class RandomGamma(torch.nn.Module):
+    """random gamma transform"""
+    def __init__(self, gamma_range=(0.7, 1.5), p=0.5):
+        super().__init__()
+        self.gamma_range = gamma_range
+        self.p = p
 
+    def forward(self, img):
+        if torch.rand(1).item() < self.p:
+            gamma = torch.empty(1).uniform_(*self.gamma_range).item()
+            img = v2.functional.adjust_gamma(img, gamma=gamma)
+        return img
+
+class RandomRGBShift(torch.nn.Module):
+    """simulates per-channel color-temperature shift"""
+    def __init__(self, shift_limit=15/255, p=0.5):
+        super().__init__()
+        self.shift_limit = shift_limit
+        self.p = p
+
+    def forward(self, img):
+        if torch.rand(1).item() < self.p:
+            shift = (torch.rand(3, 1, 1) * 2 - 1) * self.shift_limit
+            img = (img + shift).clamp(0, 1)
+        return img
+
+def fashion_transform():
+    '''
+    Fashionpedia does not really train on color. Must transform
+    images to test on different shades. Map with HEXCodes later
+    '''
+    fashion_transforms = v2.Compose([
+        v2.RandomResizedCrop((224, 224), scale=(0.8, 1.0)),
+        v2.ToImage(),
+        v2.ToDtype(torch.float32, scale=True),  # convert to [0,1] float BEFORE color ops
+        v2.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.05),
+        RandomGamma(gamma_range=(0.7, 1.5), p=0.5),
+        RandomRGBShift(shift_limit=15/255, p=0.5),
+        v2.RandomAutocontrast(p=0.2),        # closest native stand-in for CLAHE
+        v2.GaussianNoise(mean=0.0, sigma=0.03),  # stand-in for ISONoise
+        v2.Normalize(mean=mean, std=std),
+    ])
     return fashion_transforms
 
 def clean(df):
@@ -74,14 +96,23 @@ class ImageData(Dataset):
     def __init__(self, dir=cropped, transform=fashion_transform(), em_path=l_path):
         self.dir = Path(dir)
         self.transform = transform
-        self.image_paths = sorted([
-            path for path in self.dir.iterdir()
-        ]) # Loop through all images
+        self.image_paths = []
+
+        for path in self.dir.iterdir():
+            print("The path:", path.name)
+            print("Type:", type(path))
+            self.image_paths.append(path.name)
+
+        self.image_paths = sorted(self.image_paths)
+        #self.image_paths = sorted([
+        #    path for path in self.dir.iterdir()
+        #]) # Loop through all images
         labels = torch.load(em_path) # Load in premade labels
         self.image_labels = dict(zip(data.iloc[:, 0], list(zip(labels['cat'], labels['attr']))))
 
         #nu = [k.partition('_')[2] for k in self.image_labels.keys()]
         #idk = [p.partition('_')[2] for p in self.image_paths]
+        '''
         lmao = 'a5fb8419d36b80819a01294dbc5472aa.jpg'
         for i in self.image_paths:
             i = str(i)
@@ -89,14 +120,14 @@ class ImageData(Dataset):
             if poo.partition('_')[2] == lmao:
                 print(poo)
                 print('idk', poo.partition('_')[2])
-
+        '''
     def __len__(self):
         return len(self.image_paths)
 
     def __getitem__(self, idx):
         path = self.image_paths[idx]
         
-        label = self.image_labels[path.name] # Explicit lookup
+        label = self.image_labels[path] # Explicit lookup
         image = Image.open(path).convert('RGB')
 
         if self.transform:
@@ -106,7 +137,7 @@ class ImageData(Dataset):
 
 if __name__ == "__main__":
     # Heavy so load not at module import time. Needed only for labels not dataset
-    #code = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+    code = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
     #image_label()
     hi = ImageData()
     #image_name_set = set(p.name for p in Path(cropped).iterdir() if p.name in hi)

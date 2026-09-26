@@ -14,6 +14,7 @@ from pathlib import Path
 import sys
 from dotenv import load_dotenv
 from torch.utils.data import DataLoader, random_split, TensorDataset
+from sklearn.model_selection import train_test_split
 
 '''
 Seems like all of the file names are in the data but for some reason it is not
@@ -123,22 +124,19 @@ if __name__ == '__main__':
     total_size = len(dataset)
     train_size = int(0.8 * total_size)
     test_size = total_size - train_size
-
-    train, test = random_split(dataset, [train_size, test_size])
-    # Use the custom class and functions for the color data
-    co_train, co_test = get_color_data()
-     
+    #train, test = random_split(dataset, [train_size, test_size])
+    train, test = train_test_split(dataset, test_size=test_size, shuffle=False)
     # Loading the data in batches. Separate dataloaders for color and type tests
     fashion_loaders = {
-        'train' : DataLoader(train, batch_size=32, shuffle=True, num_workers=4, pin_memory=True),
+        'train' : DataLoader(train, batch_size=32, shuffle=False, num_workers=4, pin_memory=True),
         'test' : DataLoader(test, batch_size=32, shuffle=False, num_workers=4, pin_memory=True)                       
     }  
-        
-    color_loaders = { # Gets custom class of loaded in color images
-        'train' : DataLoader(co_train, batch_size=32, shuffle=True, num_workers=4, pin_memory=True),
-        'test' : DataLoader(co_test, batch_size=32, shuffle=False, num_workers=4, pin_memory=True)
-    }
-
+    '''
+    for idx, (inputs, labels) in fashion_loaders['train']:
+        print(f"--- Batch {idx} ---")
+        print("Inputs:", inputs)
+        print("Labels:", labels)   
+    '''
     dataset_sizes = {'train': train_size, 'test': test_size}
 
     # Configuring with color and clothing classes. Removing dashes
