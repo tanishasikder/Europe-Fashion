@@ -98,9 +98,10 @@ class ImageData(Dataset):
         self.transform = transform
         labels = torch.load(em_path) # Load in premade labels
         self.image_labels = dict(zip(data.iloc[:, 0], list(zip(labels['cat'], labels['attr']))))
+        valid = set(data.iloc[:, 0])
         self.image_paths = sorted([
             path.name for path in self.dir.iterdir()
-            if path.name in data.iloc[:, 0]
+            if path.name in valid
         ]) # Loop through all images
 
     def __len__(self):
@@ -123,7 +124,7 @@ class ImageData(Dataset):
 if __name__ == "__main__":
     # Heavy so load not at module import time. Needed only for labels not dataset
     code = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-    #image_label()
+    image_label()
     hi = ImageData()
     #image_name_set = set(p.name for p in Path(cropped).iterdir() if p.name in hi)
 

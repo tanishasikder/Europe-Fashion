@@ -58,15 +58,13 @@ def get_data(values, dirs, mid):
                 # Need to make the filenames unique so use uuid and separate with _
                 id = uuid.uuid4()
                 file_name = f'{id}_{dirs}'
-                path = f'{crop_images}\\{file_name}' # Save with a different file everytime
-
-                crop.save(path)
+                path = Path(crop_images) / file_name # Save with a different file everytime
 
                 cat = val[-3]
                 attr = val[-2]
 
                 writer.writerow([file_name, cat, attr])
-
+                crop.save(path)
 
 def crop_image(values, file, mid):
     with open(os.path.join(mid, file), 'rb') as f:
