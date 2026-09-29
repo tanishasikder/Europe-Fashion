@@ -13,7 +13,6 @@ from dotenv import load_dotenv
 from torch.utils.data import Dataset
 import datetime
 import torchvision.transforms.v2 as transforms
-import uuid
 
 load_dotenv()
 
@@ -50,13 +49,15 @@ def get_data(values, dirs, mid):
         writer = csv.writer(f)
         for val in values:
             if isinstance(val[-1], list):
-                crop = crop_image(val[-1], dirs, mid)
+                crop, dimen = crop_image(val[-1], dirs, mid)
 
                 if crop == 'continue':
                     continue # Skip if things are wrong.
 
-                # Need to make the filenames unique so use uuid and separate with _
-                id = uuid.uuid4()
+                # Need to make the filenames unique so use dimen and separate with _
+                # Having the dimensions makes the filenames always the same if you
+                # Run the code again
+                id = "".join(dimen)
                 file_name = f'{id}_{dirs}'
                 path = Path(crop_images) / file_name # Save with a different file everytime
 
@@ -71,21 +72,24 @@ def crop_image(values, file, mid):
         img = Image.open(f)
 
         if len(values) < 4:
-            return 'continue'
+            return 'continue', 0
         
         x, y, w, h = values # Fashionpedia does not follow PIL format
 
         if w <= 0 or h <= 0:
-            return 'continue'
+            return 'continue', 0
 
         left = x
         top = y
         right = x + w
         bottom = y + h
+        dimen = [left, top, right, bottom]
 
-        crop = img.crop([left, top, right, bottom])
+        crop = img.crop(dimen)
+        id = [str(x) for x in dimen]
         if crop:
-            return crop
+            # Return the dimension to label the file later on
+            return crop, id
         
 def pass_images():
     labels = image_labels() # Mapping of file -> categories, attributes

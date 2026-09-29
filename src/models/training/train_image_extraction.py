@@ -126,7 +126,9 @@ if __name__ == '__main__':
     test_size = total_size - train_size
 
     #train, test = random_split(dataset, [train_size, test_size])
-    train, test = train_test_split(dataset, train_size=0.8, test_size=0.2, shuffle=False)
+    #train, test = train_test_split(dataset, train_size=0.8, test_size=0.2, shuffle=False)
+    train = dataset[:train_size]
+    test = dataset[train_size:]
     # Loading the data in batches. Separate dataloaders for color and type tests
     fashion_loaders = {
         'train' : DataLoader(train, batch_size=32, shuffle=False, num_workers=4, pin_memory=True),
