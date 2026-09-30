@@ -13,7 +13,7 @@ from PIL import Image
 from pathlib import Path
 import sys
 from dotenv import load_dotenv
-from torch.utils.data import DataLoader, random_split, TensorDataset
+from torch.utils.data import DataLoader, Subset
 from sklearn.model_selection import train_test_split
 
 '''
@@ -61,23 +61,25 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
                 correct = 0
 
                 # Loop over the labels and the images in the dataloader
-                for input, label in fashion_loaders[phase]:
+                for input, cat, attr in fashion_loaders[phase]:
                     with torch.set_grad_enabled(phase=='train'):
                         # Gets the outputs from resnet model
-                        color, cat, attr = model(input)
+                        color_pred, cat_pred, attr_pred = model(input)
                         print('we modeling now')
                         # Crossentropy loss expects raw scores
-                        color_loss = criterion(color, label[:, 0])
-                        cat_loss = criterion(cat, label[:, 1])
-                        attr_loss = criterion(attr, label[:, 2])
+                        # COLOR NEEDS TO COME FROM ANOTHER SOURCE ITS NOT LABEL[:, 0]
+                        #LABEL[:, 0] IS THE FILENAME
+                        #color_loss = criterion(color, label[:, 0])
+                        cat_loss = criterion(cat_pred, cat)
+                        attr_loss = criterion(attr_pred, attr)
 
                         # Gets the largest score for accuracy
-                        _, color_pred = torch.max(color, 1)
-                        _, cat_pred = torch.max(cat, 1)
-                        _, attr_pred = torch.max(attr, 1)
+                        _, color_pred = torch.max(color_pred, 1)
+                        _, cat_pred = torch.max(cat_pred, 1)
+                        _, attr_pred = torch.max(attr_pred, 1)
 
                         # Overall loss from both predictions
-                        loss = cat_loss + color_loss + attr_loss
+                        loss = cat_loss #+ color_loss + attr_loss
 
                         # Optimizes and backward propagates if it is training
                         if phase == 'train':
@@ -87,9 +89,9 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=None):
                     
                     # Calculates the loss and correct labels
                     run_loss += loss.item() * input.size(0)
-                    correct += torch.sum(color_pred == (label[:, 0]))
-                    correct += torch.sum(cat_pred == (label[:, 1]))
-                    correct += torch.sum(attr_pred == (label[:, 2]))
+                    #correct += torch.sum(color_pred == (label[:, 0]))
+                    correct += torch.sum(cat_pred == cat)
+                    correct += torch.sum(attr_pred == attr)
             
                 # Overall loss and accuracy of this model
                 epoch_loss = run_loss / dataset_sizes[phase]
@@ -119,6 +121,9 @@ if __name__ == '__main__':
 
     # Finding all the images in the folder
     dataset = ImageData()
+    print(type(dataset))
+    print(len(dataset))
+
     print('got dataset')
     # Splitting the dataset into train test
     total_size = len(dataset)
@@ -127,8 +132,10 @@ if __name__ == '__main__':
 
     #train, test = random_split(dataset, [train_size, test_size])
     #train, test = train_test_split(dataset, train_size=0.8, test_size=0.2, shuffle=False)
-    train = dataset[:train_size]
-    test = dataset[train_size:]
+    train = Subset(dataset, range(0, train_size))
+    test = Subset(dataset, range(train_size, len(dataset)))
+    #train = dataset[:train_size]
+    #test = dataset[train_size:]
     # Loading the data in batches. Separate dataloaders for color and type tests
     fashion_loaders = {
         'train' : DataLoader(train, batch_size=32, shuffle=False, num_workers=4, pin_memory=True),

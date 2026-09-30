@@ -11,6 +11,7 @@ import torch
 from torchvision.transforms import v2
 from sentence_transformers import SentenceTransformer
 from torchvision.transforms import v2
+from torch.utils.data import Subset
 
 load_dotenv()
 
@@ -97,8 +98,8 @@ class ImageData(Dataset):
         self.dir = Path(dir)
         self.transform = transform
         labels = torch.load(em_path) # Load in premade labels
-        self.image_labels = dict(zip(data.iloc[:, 0], list(zip(labels['cat'], labels['attr']))))
-        valid = set(data.iloc[:, 0])
+        self.image_labels = dict(zip(data.index, list(zip(labels['cat'], labels['attr']))))
+        valid = set(data.iloc[:, 0].tolist())
         self.image_paths = sorted([
             path.name for path in self.dir.iterdir()
             if path.name in valid
@@ -108,24 +109,26 @@ class ImageData(Dataset):
         return len(self.image_paths)
 
     def __getitem__(self, idx):
+        filename = list(self.image_labels.keys())[idx]
         path = self.image_paths[idx]
-        # Look up without using UUID
-        #original_name = path.partition('_')[2]
-        #label = self.image_labels[original_name] # Explicit lookup
-        #image = Image.open(self.dir / path).convert('RGB')
-        label = self.image_labels[path]
+        label = self.image_labels[self.dir/path]
         image = Image.open(self.dir / path).convert('RGB')
 
         if self.transform:
             image = self.transform(image)
 
-        return image, label
+        cat = label[filename][1] # Label is a dict. Get filename and index
+        attr = label[filename][2]
+
+        return image, cat, attr
 
 if __name__ == "__main__":
     # Heavy so load not at module import time. Needed only for labels not dataset
     code = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-    image_label()
-    hi = ImageData()
+    #image_label()
+    #hi = ImageData()
+    print(data.iloc[:, 0].tolist())
+    print(data.index)
     #image_name_set = set(p.name for p in Path(cropped).iterdir() if p.name in hi)
 
 
