@@ -155,7 +155,7 @@ if __name__ == '__main__':
 
     model = CNN(list(codes.values()), clothing, attr)
     print('i guess model worked lmao')
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.SGD(model.parameters(), lr=1e-4, weight_decay=1e-4)
 
     # Every 7 epochs the learning rate is multiplied by gamma

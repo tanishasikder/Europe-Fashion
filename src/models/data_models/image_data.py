@@ -74,7 +74,7 @@ def clean(df):
     df.iloc[:, 2] = df.iloc[:, 2].fillna('')
     return df
 
-df = pd.read_csv(names, header=None)
+df = pd.read_csv(names, header=None, keep_default_na=False)
 df = df.sort_values(by=df.columns[0])
 data = clean(df)
 
@@ -98,7 +98,7 @@ class ImageData(Dataset):
         self.dir = Path(dir)
         self.transform = transform
         labels = torch.load(em_path) # Load in premade labels
-        self.image_labels = dict(zip(data.index, list(zip(labels['cat'], labels['attr']))))
+        self.image_labels = dict(zip(data.loc[:, 0], list(zip(labels['cat'], labels['attr']))))
         valid = set(data.iloc[:, 0].tolist())
         self.image_paths = sorted([
             path.name for path in self.dir.iterdir()
@@ -109,16 +109,13 @@ class ImageData(Dataset):
         return len(self.image_paths)
 
     def __getitem__(self, idx):
-        filename = list(self.image_labels.keys())[idx]
         path = self.image_paths[idx]
-        label = self.image_labels[self.dir/path]
+        # Separate the premade tuple
+        cat, attr = self.image_labels[path]
         image = Image.open(self.dir / path).convert('RGB')
 
         if self.transform:
             image = self.transform(image)
-
-        cat = label[filename][1] # Label is a dict. Get filename and index
-        attr = label[filename][2]
 
         return image, cat, attr
 
